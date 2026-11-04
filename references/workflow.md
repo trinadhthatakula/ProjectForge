@@ -30,11 +30,21 @@ Support three selection modes: **dynamic** ranks relevant roles from project sig
 
 Report the optimizer's role relevance, overlap, independence, coordination overhead, context needs, research complexity, integration complexity, handoffs, and review effort. Treat scores and token counts as transparent planning heuristics, and include their basis; do not imply empirical calibration.
 
-Every assignment contract states mission, responsibilities, exclusions, inputs, outputs, dependencies, acceptance criteria, and handoff requirements. Preserve catalogue prerequisites as input notes. When a prerequisite is owned by another selected assignment, represent that relationship in the manifest dependency graph using stable assignment IDs and the appropriate `blocks`, `informs`, or `reviews` relationship. The supervisor maintains the canonical manifest, reviews specialist claims, resolves conflicts, and records accepted decisions. Specialists should identify evidence and uncertainty, not silently decide user-owned product questions.
+Every assignment contract states mission, responsibilities, exclusions, inputs, outputs, prerequisites, dependencies, acceptance criteria, handoff requirements, allowed and protected paths, required checks, and completion criteria. Preserve catalogue prerequisites as explicit assignment fields as well as readable inputs. The optimizer may show metadata-based provider candidates as hints; they are not dependency edges. Use `projectforge resolve-dependencies MANIFEST RESOLUTIONS.json` to record supervisor-confirmed prerequisite mappings. Each resolution names the source assignment, exact prerequisite, provider assignment, and relationship kind. Do not guess mappings: unresolved prerequisites stay in the report until a provider and relationship are chosen.
+
+Dependency edges point from the assignment that depends on work to the assignment that provides it. `blocks` and `reviews` edges sequence work; `informs` edges are informational and do not block the schedule. Validate assignment IDs, duplicate edges, and cycles before execution. The supervisor maintains the canonical manifest, reviews specialist claims, resolves conflicts, and records accepted decisions. Specialists should identify evidence and uncertainty, not silently decide user-owned product questions.
 
 ## Dependency-aware work
 
-Represent dependencies by stable assignment IDs. Validate that every referenced dependency exists and that the graph is acyclic. Run independent research concurrently only when supported by the active runtime and useful for the task. Start blocked work after its inputs are accepted. If no subagents are available, retain the same contracts as sequential delegation briefs.
+Represent dependencies by stable assignment IDs. Validate that every referenced dependency exists and that the blocking/review graph is acyclic. Run independent research concurrently only when supported by the active runtime and useful for the task. Start blocked work after its inputs are accepted. If no subagents are available, retain the same contracts as sequential delegation briefs.
+
+## Agent results, review, and retries
+
+Each provider returns a JSON document matching `schemas/agent-result.schema.json`, independent of provider-specific message formats. It reports the assignment and manifest versions, lifecycle status, output paths, evidence, check results, unresolved questions, risks, assumptions, handoff notes, and retry identifiers. Validate it with `projectforge validate-result MANIFEST RESULT.json` before review.
+
+The agent may report `completed` or `validated`; these are claims to inspect. Record a new result with review state `pending`, then have the supervisor choose `accepted`, `rejected`, or `rework_required` with `projectforge record-result`. Acceptance requires all assignment-required checks to pass and reported output paths to exist within the project. Completion criteria that need judgment remain a supervisor review. The manifest stores the review state and a pointer to the result file, while the result file remains a separate immutable record. A pending result can receive one final supervisor decision; recorded decisions are immutable.
+
+Use a distinct result ID and file for each attempt. A retry names the immediately preceding result and is allowed only after that result was rejected or marked `rework_required`. Do not replace failed or rejected evidence. Record blocked, failed, cancelled, and in-progress outcomes as lifecycle states; do not mark them accepted or integrate their outputs.
 
 ## Readiness gates
 
@@ -55,3 +65,5 @@ The validator reports derived open gates in addition to recorded blockers and re
 ## Change management
 
 Keep accepted changes in the next manifest version and retain a short change record with date, request, affected areas, and decision status. Use `projectforge diff OLD NEW` to surface changed project fields, roster, capability needs, dependencies, milestones, risks, and decisions. Before applying a consequential change, explain effects on scope, architecture, cost, staffing, schedule, and prior acceptance criteria. Regenerate both documents from the accepted manifest.
+
+Manifest validation rejects unsupported `schema_version` values. For supported older versions, use `projectforge migrate OLD --output NEW`; migration validates the source, applies a registered migration, validates the result, and preserves the original file. Never silently rewrite an old manifest or invent a migration for an unknown version.

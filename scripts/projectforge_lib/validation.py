@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from pathlib import Path
+from pathlib import PurePosixPath
 from typing import Any
 
 from .common import read_json, skill_root
+from .migrations import SUPPORTED_MANIFEST_VERSIONS
 
 
 def _schema_errors(manifest: dict[str, Any], schema_path: Path) -> list[str]:
@@ -168,7 +170,11 @@ def readiness_blockers(manifest: dict[str, Any]) -> list[str]:
 
 
 def validate_manifest(manifest: dict[str, Any]) -> list[str]:
-    errors = _schema_errors(manifest, skill_root() / "schemas" / "project-manifest.schema.json")
+    version = manifest.get("schema_version") if isinstance(manifest, dict) else None
+    if version not in SUPPORTED_MANIFEST_VERSIONS:
+        return [f"Unsupported manifest schema_version {version!r}; supported versions: {', '.join(sorted(SUPPORTED_MANIFEST_VERSIONS))}. Use 'migrate' for a supported older manifest."]
+    schema_name = "project-manifest-1.0.0.schema.json" if version == "1.0.0" else "project-manifest.schema.json"
+    errors = _schema_errors(manifest, skill_root() / "schemas" / schema_name)
     if errors:
         return errors
 
@@ -180,25 +186,93 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     assignments = [team["supervisor"], *team["specialists"]]
     errors.extend(_check_unique_ids(assignments, "team.assignments"))
     errors.extend(_check_unique_ids(assignments, "team.assignments", key="role_id"))
-    assignment_ids = {item["id"] for item in assignments}
-    dependency_edges: list[tuple[str, str]] = []
     for assignment in assignments:
-        for dependency in assignment["dependencies"]:
+        contract = assignment.get("result_contract")
+        if not contract:
+            continue
+        for field in ("allowed_paths", "protected_paths"):
+            rules = contract.get(field, [])
+            if len(rules) != len(set(rules)):
+                errors.append(f"assignment {assignment['id']!r} result_contract.{field} contains duplicate paths")
+            for rule in rules:
+                normalized_rule = rule.rstrip("/")
+                path = PurePosixPath(normalized_rule)
+                has_windows_drive = len(normalized_rule) > 1 and normalized_rule[0].isalpha() and normalized_rule[1] == ":"
+                if "\\" in rule or not normalized_rule or normalized_rule == "." or has_windows_drive or path.is_absolute() or ".." in path.parts or "." in path.parts or normalized_rule != path.as_posix():
+                    errors.append(f"assignment {assignment['id']!r} result_contract.{field} contains unsafe relative path {rule!r}")
+        check_names = [item.casefold() for item in contract.get("required_checks", [])]
+        if len(check_names) != len(set(check_names)):
+            errors.append(f"assignment {assignment['id']!r} result_contract.required_checks contains duplicates")
+    assignment_ids = {item["id"] for item in assignments}
+    execution_results = manifest.get("execution", {}).get("results", [])
+    seen_result_ids: dict[str, dict[str, Any]] = {}
+    seen_result_files: set[str] = set()
+    seen_attempts: set[tuple[str, int]] = set()
+    for index, result in enumerate(execution_results):
+        result_id = result["result_id"]
+        result_file = result["result_file"]
+        assignment_id = result["assignment_id"]
+        attempt = result["attempt"]
+        if result_id in seen_result_ids:
+            errors.append(f"execution.results[{index}].result_id duplicates {result_id!r}")
+        if result_file in seen_result_files:
+            errors.append(f"execution.results[{index}].result_file duplicates {result_file!r}")
+        if assignment_id not in assignment_ids:
+            errors.append(f"execution result {result_id!r} refers to unknown assignment_id {assignment_id!r}")
+        if result["review_status"] in {"accepted", "rejected", "rework_required"} and (not result.get("reviewer", "").strip() or not result.get("reviewed_at", "").strip()):
+            errors.append(f"execution result {result_id!r} has a supervisor decision without reviewer and reviewed_at")
+        if result["review_status"] == "accepted" and result["status"] not in {"completed", "validated"}:
+            errors.append(f"execution result {result_id!r} cannot be accepted from status {result['status']!r}")
+        path = PurePosixPath(result_file)
+        has_windows_drive = len(result_file) > 1 and result_file[0].isalpha() and result_file[1] == ":"
+        if "\\" in result_file or has_windows_drive or path.is_absolute() or ".." in path.parts or "." in path.parts or result_file != path.as_posix() or path.as_posix() in {"", "."}:
+            errors.append(f"execution result {result_id!r} has unsafe relative result_file {result_file!r}")
+        attempt_key = (assignment_id, attempt)
+        if attempt_key in seen_attempts:
+            errors.append(f"assignment {assignment_id!r} has more than one result file for attempt {attempt}")
+        seen_attempts.add(attempt_key)
+        prior_id = result["prior_result_id"]
+        if attempt == 1 and prior_id is not None:
+            errors.append(f"execution result {result_id!r} attempt 1 must have prior_result_id=null")
+        elif attempt > 1:
+            prior = seen_result_ids.get(prior_id)
+            if prior is None or prior["assignment_id"] != assignment_id or prior["attempt"] + 1 != attempt:
+                errors.append(f"execution result {result_id!r} does not follow its immediately preceding attempt")
+            elif prior["review_status"] not in {"rejected", "rework_required"}:
+                errors.append(f"execution result {result_id!r} retries an attempt without a rejected or rework_required review")
+        seen_result_ids[result_id] = result
+        seen_result_files.add(result_file)
+    dependency_edges: list[tuple[str, str]] = []
+    seen_dependency_edges: set[tuple[str, str, str]] = set()
+    for assignment in assignments:
+        assignment_dependencies = assignment["dependencies"]
+        if len(assignment_dependencies) != len(set(assignment_dependencies)):
+            errors.append(f"assignment {assignment['id']!r} contains duplicate dependencies")
+        for dependency in assignment_dependencies:
             if dependency not in assignment_ids:
                 errors.append(f"assignment {assignment['id']!r} refers to unknown dependency {dependency!r}")
             elif dependency == assignment["id"]:
                 errors.append(f"assignment {assignment['id']!r} depends on itself")
             else:
+                seen_dependency_edges.add((assignment["id"], dependency, "blocks"))
                 dependency_edges.append((assignment["id"], dependency))
     for edge in manifest["dependencies"]:
         source, target = edge["from"], edge["to"]
+        edge_key = (source, target, edge["kind"])
+        if edge_key in seen_dependency_edges:
+            errors.append(f"duplicate team dependency edge {source!r} -> {target!r} ({edge['kind']})")
+        seen_dependency_edges.add(edge_key)
         if source not in assignment_ids or target not in assignment_ids:
             missing = [value for value in (source, target) if value not in assignment_ids]
             errors.append(f"dependency {source!r} -> {target!r} refers to unknown assignment ID(s): {', '.join(repr(value) for value in missing)}")
         elif source == target:
             errors.append(f"dependency {source!r} cannot refer to itself")
-        else:
+        elif edge["kind"] in {"blocks", "reviews"}:
             dependency_edges.append((source, target))
+        if edge.get("prerequisite"):
+            source_assignment = next((item for item in assignments if item["id"] == source), None)
+            if source_assignment and edge["prerequisite"] not in source_assignment.get("prerequisites", []):
+                errors.append(f"dependency {source!r} prerequisite {edge['prerequisite']!r} is not declared by that assignment")
     found_cycle = _cycle(assignment_ids, dependency_edges)
     if found_cycle:
         errors.append("team dependency cycle: " + " -> ".join(found_cycle))

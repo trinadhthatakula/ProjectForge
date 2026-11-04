@@ -1,0 +1,55 @@
+name: ProjectForge CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Validate JSON schemas
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          from jsonschema import Draft202012Validator
+
+          for path in sorted(Path("schemas").glob("*.schema.json")):
+              schema = json.loads(path.read_text(encoding="utf-8"))
+              Draft202012Validator.check_schema(schema)
+              print(f"Valid schema: {path}")
+          PY
+      - name: Validate example manifests
+        run: |
+          for manifest in examples/*.json; do
+            python scripts/projectforge.py validate "$manifest"
+          done
+      - name: Run unit suite
+        run: python -m unittest discover -s tests -v
+      - name: Run CLI smoke workflow
+        run: |
+          temp_dir="$(mktemp -d)"
+          trap 'rm -rf "$temp_dir"' EXIT
+          python scripts/projectforge.py init --name "CI smoke" --output "$temp_dir/manifest.json"
+          python scripts/projectforge.py validate "$temp_dir/manifest.json"
+          python scripts/projectforge.py render "$temp_dir/manifest.json" --output-dir "$temp_dir/output" --format both

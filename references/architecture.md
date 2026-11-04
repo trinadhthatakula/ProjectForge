@@ -12,7 +12,7 @@ ProjectForge separates conversational judgment from deterministic checks. The sk
 | `references/roles.json` | Versioned expert profiles, role-specific trigger cues, capability expectations, collaboration relationships, and links to selected-role guides. |
 | `references/role-guides/` | Selected-role planning rules, domain cues, evidence requirements, boundaries, and handoff criteria. Read only guides for shortlisted roles. |
 | `scripts/projectforge.py` | CLI entry point for manifest creation, capability discovery, matching, optimization, validation, estimation, rendering, and diffing. |
-| `schemas/` | Draft 2020-12 schemas for project manifests, expert roles, and assignment contracts. |
+| `schemas/` | Draft 2020-12 schemas for versioned project manifests, expert roles, assignment contracts, dependency resolutions, and provider-neutral agent results. |
 | `templates/` | Markdown and standalone HTML presentation structure. |
 | `examples/` | Representative valid inputs for four project shapes. |
 | `tests/` | Standard-library `unittest` suite for script behaviors and safety invariants. |
@@ -26,18 +26,20 @@ flowchart LR
   R[Role catalogue] --> T[Team optimizer]
   C[Runtime capability inventory] --> T
   M --> T
-  T --> A[Assignment contracts and dependency graph]
+  T --> A[Assignment contracts and resolved dependency graph]
   A --> V[Readiness and schema validation]
-  V --> G[Markdown and offline HTML]
+  V --> X[Agent execution and result validation]
+  X --> R[Supervisor acceptance or rework]
+  R --> G[Markdown and offline HTML]
 ```
 
-The manifest is the canonical specification. A generated document never becomes an alternate source of truth. Team optimization is explainable and advisory: the supervisor resolves context-sensitive decisions, and roster validation is strict about the seven-person ceiling. User choices and evidence take precedence over heuristic recommendations.
+The manifest is the canonical specification and execution ledger. Agent result files are separately versioned evidence records; the supervisor records their lifecycle and acceptance in the manifest. A generated document never becomes an alternate source of truth. Team optimization is explainable and advisory: the supervisor resolves context-sensitive decisions, and roster validation is strict about the seven-person ceiling. User choices and evidence take precedence over heuristic recommendations.
 
 ## Capability model
 
 Discovery reports a runtime inventory with provenance. It can see local skill directories, frontmatter, agent definition metadata, Codex CLI version, and MCP server names from local config. It does not infer that an installed skill can be invoked in the current session, and it never opens secret configuration values for output. The conversational agent adds capabilities exposed by its active tool surface and marks unavailable information unverified.
 
-Role requirements match to discovered skill names/descriptions, tool names, and custom agents using tags and explainable text matching. A match report lists evidence and status (`available`, `partial`, `missing`, or `unverified`). Full skill instructions are read only for shortlisted matches.
+Role requirements match to discovered skill names/descriptions, tool names, and custom agents using tags and explainable text matching. A match report lists evidence and status (`available`, `partial`, `missing`, or `unverified`). Metadata discovery is candidate selection; task-specific availability, permissions, and output checks remain separate verification steps. Full skill instructions are read only for shortlisted matches.
 
 ## Team model
 
@@ -45,7 +47,7 @@ The supervisor is always present and counts toward the total. `optimize` support
 
 ## Runtime adapters
 
-The portable manifest and assignment contracts are runtime-neutral. The current adapter recognizes Codex and compatible Agent Skills directories. Codex specialist files use standalone TOML definitions in a target project’s `.codex/agents/`; ProjectForge keeps these as generated output, not active definitions in its own skill package. Runtime-specific concurrency fields are documented in `references/compatibility.md`. Other runtimes get delegation briefs unless their active capabilities are verified.
+The portable manifest, assignment contracts, dependency records, and agent result contract are runtime-neutral. The current adapter recognizes Codex and compatible Agent Skills directories. Codex specialist files use standalone TOML definitions in a target project’s `.codex/agents/`; ProjectForge keeps these as generated output, not active definitions in its own skill package. Runtime-specific concurrency fields are documented in `references/compatibility.md`. Other runtimes get delegation briefs unless their active capabilities are verified.
 
 ## Output and security
 
@@ -53,4 +55,4 @@ Markdown is the canonical human-readable specification and HTML is rendered from
 
 ## Planned extension points
 
-Keep the manifest versioned. Add an explicit migration when a future schema breaks compatibility. Add a runtime adapter only when its capability and configuration interfaces are documented. Keep role profiles data-driven so custom roles can be validated without embedding specialist rules in the renderer.
+Keep the manifest versioned and add a registered, loss-conscious migration for every breaking version. The migration registry rejects unknown source and target versions. Add a runtime adapter only when its capability and configuration interfaces are documented. Keep role profiles data-driven so custom roles can be validated without embedding specialist rules in the renderer.

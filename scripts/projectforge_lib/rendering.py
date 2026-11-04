@@ -60,6 +60,19 @@ def _html_list(values: list[Any], empty: str = "Not specified", *, checklist: st
     return '<ul class="checklist">' + "".join(items) + "</ul>" if checklist else "<ul>" + "".join(items) + "</ul>"
 
 
+def _result_contract_items(contract: dict[str, Any]) -> list[str]:
+    if not contract:
+        return []
+    return [
+        "Protocol version: " + str(contract.get("protocol_version", "Not specified")),
+        "Expected output: " + str(contract.get("expected_output_format", "Not specified")),
+        "Allowed paths: " + (", ".join(contract.get("allowed_paths", [])) or "none; return findings without writing files"),
+        "Protected paths: " + (", ".join(contract.get("protected_paths", [])) or "none listed"),
+        "Required checks: " + (", ".join(contract.get("required_checks", [])) or "none specified"),
+        "Completion criteria: " + ("; ".join(contract.get("completion_criteria", [])) or "Not specified"),
+    ]
+
+
 def _html_table(headers: list[str], rows: list[list[Any]]) -> str:
     if not rows:
         return '<p class="empty">No entries.</p>'
@@ -182,7 +195,8 @@ def render_markdown(manifest: dict[str, Any]) -> str:
     assignment_rows = [[item["name"], item["role_id"], item["mission"], "; ".join(item["outputs"]), "; ".join(item["dependencies"])] for item in assignments]
     contracts = []
     for item in assignments:
-        contracts.append("### " + _md(item["name"]) + "\n\n**Mission:** " + _md(item["mission"]) + "\n\n**Responsibilities**\n" + _md_list(item["responsibilities"]) + "\n\n**Exclusions**\n" + _md_list(item["exclusions"]) + "\n\n**Inputs**\n" + _md_list(item["inputs"]) + "\n\n**Outputs**\n" + _md_list(item["outputs"]) + "\n\n**Dependencies:** " + _md_list(item["dependencies"]) + "\n\n**Acceptance criteria**\n" + _md_list(item["acceptance_criteria"]) + "\n\n**Handoff requirements**\n" + _md_list(item["handoff_requirements"]) + "\n\n**Required capabilities:** " + _md_list(item["required_capabilities"]) + "\n\n**Supporting skill categories:** " + _md_list(item["supporting_skills"]))
+        contract_items = _result_contract_items(item.get("result_contract", {}))
+        contracts.append("### " + _md(item["name"]) + "\n\n**Mission:** " + _md(item["mission"]) + "\n\n**Responsibilities**\n" + _md_list(item["responsibilities"]) + "\n\n**Exclusions**\n" + _md_list(item["exclusions"]) + "\n\n**Inputs**\n" + _md_list(item["inputs"]) + "\n\n**Prerequisites**\n" + _md_list(item.get("prerequisites", [])) + "\n\n**Outputs**\n" + _md_list(item["outputs"]) + "\n\n**Dependencies:** " + _md_list(item["dependencies"]) + "\n\n**Acceptance criteria**\n" + _md_list(item["acceptance_criteria"]) + "\n\n**Handoff requirements**\n" + _md_list(item["handoff_requirements"]) + "\n\n**Provider-neutral result contract**\n" + _md_list(contract_items, "No result contract recorded.") + "\n\n**Required capabilities:** " + _md_list(item["required_capabilities"]) + "\n\n**Supporting skill categories:** " + _md_list(item["supporting_skills"]))
     metrics = team["optimization"]["metrics"]
     relevance_text = "; ".join(f"{item['role_id']}: {item['score']}/10 ({', '.join(item['signals']) or 'user-selected'})" for item in metrics["role_relevance"])
     overlap_text = "; ".join(" / ".join(pair) for pair in metrics["role_overlap"]["pairs"]) or "None"
@@ -199,6 +213,8 @@ def render_markdown(manifest: dict[str, Any]) -> str:
     ]
     sections.append("## Specialist team\n\n**Approval status:** " + _md(team["approval_status"]) + "\n\n**Selection mode:** " + _md(team["selection_mode"]) + "\n\n" + _md_table(["Agent", "Role", "Mission", "Outputs", "Dependencies"], assignment_rows) + "\n\n### Team optimization estimates\n\n" + _md_table(["Measure", "Estimate", "Basis"], metric_rows) + "\n\n### Selection rationale\n" + _md_list(team["rationale"]) + "\n\n### Execution flow\n\n" + _dependency_mermaid(manifest) + "\n\n## Agent assignment contracts\n\n" + "\n\n".join(contracts))
     sections.append("## Dependencies\n\n" + _md_table(["Work item", "Depends on", "Relationship"], [[item["from"], item["to"], item["kind"]] for item in manifest["dependencies"]]))
+    execution_rows = [[item["result_id"], item["assignment_id"], item["status"], item["attempt"], item["review_status"], item["result_file"]] for item in manifest.get("execution", {}).get("results", [])]
+    sections.append("## Agent execution results\n\nThe supervisor-controlled ledger points to separate result files; each file is validated against the provider-neutral result schema.\n\n" + _md_table(["Result", "Assignment", "Status", "Attempt", "Review", "Evidence file"], execution_rows))
     sections.append("## Deliverables and milestones\n\n### Deliverables\n\n" + _md_table(["Deliverable", "Owner", "Status", "Acceptance criteria"], [[item["name"], item["owner"], item["status"], "; ".join(item["acceptance_criteria"])] for item in manifest["deliverables"]]) + "\n\n### Milestones\n\n" + _md_table(["Milestone", "Target", "Depends on"], [[item["name"], item["target"], "; ".join(item["depends_on"])] for item in manifest["milestones"]]))
     sections.append("## Risks\n\n" + _md_table(["Risk", "Likelihood", "Impact", "Mitigation", "Owner"], [[item["description"], item["likelihood"], item["impact"], item["mitigation"], item["owner"]] for item in manifest["risks"]]))
     sections.append("## Assumptions\n\n" + _md_table(["Assumption", "Validation action", "Owner", "Status"], [[item["statement"], item["validation_action"], item["owner"], item["status"]] for item in manifest["assumptions"]]))
@@ -247,7 +263,7 @@ def render_html(manifest: dict[str, Any]) -> str:
     assignments = [team["supervisor"], *team["specialists"]]
     cards = []
     for item in assignments:
-        cards.append('<details class="card" open><summary>' + _html(item["name"]) + "</summary><p>" + _html(item["mission"]) + "</p><h4>Responsibilities</h4>" + _html_list(item["responsibilities"]) + "<h4>Exclusions</h4>" + _html_list(item["exclusions"]) + "<h4>Inputs</h4>" + _html_list(item["inputs"]) + "<h4>Outputs</h4>" + _html_list(item["outputs"]) + "<h4>Dependencies</h4>" + _html_list(item["dependencies"]) + "<h4>Acceptance criteria</h4>" + _html_list(item["acceptance_criteria"]) + "<h4>Handoff requirements</h4>" + _html_list(item["handoff_requirements"]) + "<h4>Required capabilities</h4>" + _html_list(item["required_capabilities"]) + "<h4>Supporting skill categories</h4>" + _html_list(item["supporting_skills"]) + "</details>")
+        cards.append('<details class="card" open><summary>' + _html(item["name"]) + "</summary><p>" + _html(item["mission"]) + "</p><h4>Responsibilities</h4>" + _html_list(item["responsibilities"]) + "<h4>Exclusions</h4>" + _html_list(item["exclusions"]) + "<h4>Inputs</h4>" + _html_list(item["inputs"]) + "<h4>Prerequisites</h4>" + _html_list(item.get("prerequisites", [])) + "<h4>Outputs</h4>" + _html_list(item["outputs"]) + "<h4>Dependencies</h4>" + _html_list(item["dependencies"]) + "<h4>Acceptance criteria</h4>" + _html_list(item["acceptance_criteria"]) + "<h4>Handoff requirements</h4>" + _html_list(item["handoff_requirements"]) + "<h4>Provider-neutral result contract</h4>" + _html_list(_result_contract_items(item.get("result_contract", {})), "No result contract recorded.") + "<h4>Required capabilities</h4>" + _html_list(item["required_capabilities"]) + "<h4>Supporting skill categories</h4>" + _html_list(item["supporting_skills"]) + "</details>")
     metrics = team["optimization"]["metrics"]
     relevance_text = "; ".join(f"{item['role_id']}: {item['score']}/10 ({', '.join(item['signals']) or 'user-selected'})" for item in metrics["role_relevance"])
     overlap_text = "; ".join(" / ".join(pair) for pair in metrics["role_overlap"]["pairs"]) or "None"
@@ -264,6 +280,8 @@ def render_html(manifest: dict[str, Any]) -> str:
     ]
     add("team", "Specialist team", '<p>Approval: <strong>' + _html(team["approval_status"]) + "</strong>. Selection mode: <strong>" + _html(team["selection_mode"]) + "</strong>. Supervisor plus " + _html(len(team["specialists"])) + " specialists.</p>" + '<h3>Team optimization estimates</h3>' + _html_table(["Measure", "Estimate", "Basis"], metric_rows) + '<div class="panel"><h3>Selection rationale</h3>' + _html_list(team["rationale"]) + "</div>" + _html_dependencies(manifest) + '<h3>Assignment contracts</h3><div class="cards">' + "".join(cards) + "</div>")
     add("dependencies", "Dependencies", _html_table(["Work item", "Depends on", "Relationship"], [[item["from"], item["to"], item["kind"]] for item in manifest["dependencies"]]))
+    execution_rows = [[item["result_id"], item["assignment_id"], item["status"], item["attempt"], item["review_status"], item["result_file"]] for item in manifest.get("execution", {}).get("results", [])]
+    add("execution", "Agent execution results", '<p>The supervisor-controlled ledger points to separate result files; each file is validated against the provider-neutral result schema.</p>' + _html_table(["Result", "Assignment", "Status", "Attempt", "Review", "Evidence file"], execution_rows))
     deliverables = []
     for index, item in enumerate(manifest["deliverables"]):
         deliverables.append([f'<label><input type="checkbox" data-checklist="deliverable-{index}"> {_html(item["name"])}</label>', _html(item["owner"]), _html(item["status"]), _html("; ".join(item["acceptance_criteria"]))])

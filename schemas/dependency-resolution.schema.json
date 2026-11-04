@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectforge.local/schemas/dependency-resolution.schema.json",
+  "title": "Supervisor-confirmed ProjectForge prerequisite resolutions",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["assignment_id", "prerequisite", "provider_assignment_id", "kind"],
+    "properties": {
+      "assignment_id": {"type": "string", "minLength": 1},
+      "prerequisite": {"type": "string", "minLength": 1},
+      "provider_assignment_id": {"type": "string", "minLength": 1},
+      "kind": {"type": "string", "enum": ["blocks", "informs", "reviews"]}
+    }
+  }
+}

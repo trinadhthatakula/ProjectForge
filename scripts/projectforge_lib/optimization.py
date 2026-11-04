@@ -65,6 +65,23 @@ def _token_match(phrase: str, text: str) -> bool:
     return re.search(rf"(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])", normalized) is not None
 
 
+def _prerequisite_candidates(prerequisite: str, assignment: dict[str, Any], candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    stop_words = {"the", "and", "for", "from", "with", "that", "this", "contract", "needs", "choices", "requirements"}
+    terms = {word for word in re.findall(r"[a-z0-9+#.-]+", prerequisite.casefold()) if len(word) > 2 and word not in stop_words}
+    ranked = []
+    for candidate in candidates:
+        if candidate["id"] == assignment["id"]:
+            continue
+        text = " ".join([
+            candidate.get("name", ""), candidate.get("mission", ""),
+            *candidate.get("responsibilities", []), *candidate.get("outputs", []),
+        ]).casefold()
+        matches = sorted(term for term in terms if _token_match(term, text))
+        if matches:
+            ranked.append({"assignment_id": candidate["id"], "matched_terms": matches})
+    return sorted(ranked, key=lambda item: (-len(item["matched_terms"]), item["assignment_id"]))[:3]
+
+
 def _score_role(role: dict[str, Any], text: str, platforms: list[str], open_text: str = "") -> tuple[float, list[str]]:
     reasons: list[str] = []
     score = 0.0
@@ -101,7 +118,7 @@ def _schedule(role_ids: list[str], manifest: dict[str, Any]) -> list[list[str]]:
         if assignment["id"] in dependencies:
             dependencies[assignment["id"]].update(dep for dep in assignment.get("dependencies", []) if dep in dependencies)
     for edge in manifest["dependencies"]:
-        if edge["from"] in dependencies and edge["to"] in dependencies:
+        if edge["kind"] in {"blocks", "reviews"} and edge["from"] in dependencies and edge["to"] in dependencies:
             dependencies[edge["from"]].add(edge["to"])
     remaining = set(role_ids)
     layers: list[list[str]] = []
@@ -279,6 +296,7 @@ def optimize_team(
     overlap_details = overlaps
     selected_overlap = len(overlap_details)
     assignments = [new_assignment(profiles[role_id]) for role_id in selected]
+    planned_assignments = [manifest["team"]["supervisor"], *assignments]
     rationale = []
     for role_id in selected:
         score, reasons = scores.get(role_id, (0.0, []))
@@ -289,6 +307,22 @@ def optimize_team(
         rationale.append("Kept the team small because the current project signals do not establish independent work for more specialists.")
     estimates = _estimate(len(selected), handoffs, len(manifest.get("features", [])) + len(manifest["architecture"].get("components", [])))
     metrics = _team_metrics(selected, profiles, scores, manifest, estimates)
+    resolved_prerequisites = {
+        (edge["from"], edge["prerequisite"])
+        for edge in manifest.get("dependencies", [])
+        if edge.get("prerequisite") and edge.get("resolution_source") == "role_prerequisite"
+    }
+    unresolved_prerequisites = [
+        {
+            "assignment_id": assignment["id"], "role_id": assignment["role_id"], "prerequisite": prerequisite,
+            "candidate_providers": _prerequisite_candidates(prerequisite, assignment, planned_assignments),
+        }
+        for assignment in planned_assignments
+        for prerequisite in assignment.get("prerequisites", [])
+        if (assignment["id"], prerequisite) not in resolved_prerequisites
+    ]
+    if unresolved_prerequisites:
+        rationale.append(f"Resolve {len(unresolved_prerequisites)} role prerequisite(s) before finalizing the execution schedule; no provider or relationship was guessed.")
     return {
         "mode": mode,
         "selection_mode": selection_mode,
@@ -300,6 +334,7 @@ def optimize_team(
         "overlap_pairs": selected_overlap,
         "overlap_details": overlap_details,
         "schedule": _schedule(role_ids, manifest),
+        "unresolved_prerequisites": unresolved_prerequisites,
         "estimates": estimates,
         "metrics": metrics,
     }

@@ -77,7 +77,16 @@ def new_assignment(role: dict[str, Any], assignment_id: str | None = None) -> di
             *[f"Prerequisite: {item}" for item in role["dependencies"]],
         ],
         "outputs": list(role["deliverables"]),
+        "prerequisites": list(role["dependencies"]),
         "dependencies": [],
+        "result_contract": {
+            "protocol_version": "1.0.0",
+            "expected_output_format": "provider-neutral JSON result with explicitly authorized artifacts",
+            "allowed_paths": [],
+            "protected_paths": [],
+            "required_checks": [],
+            "completion_criteria": list(role["acceptance_criteria"]),
+        },
         "acceptance_criteria": list(role["acceptance_criteria"]),
         "handoff_requirements": list(role["collaboration_requirements"]),
         "required_capabilities": list(role["required_capabilities"]),
@@ -90,7 +99,7 @@ def new_manifest(name: str, mode: str = "agent_decided") -> dict[str, Any]:
     project_id = slugify(name)
     supervisor = role_map()["supervisor"]
     return {
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "project": {
             "id": project_id,
             "name": name,
@@ -129,6 +138,7 @@ def new_manifest(name: str, mode: str = "agent_decided") -> dict[str, Any]:
                 },
             },
         },
+        "execution": {"protocol_version": "1.0.0", "results": []},
         "dependencies": [],
         "deliverables": [],
         "milestones": [],

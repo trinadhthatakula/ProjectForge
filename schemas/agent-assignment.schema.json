@@ -1,23 +1,152 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://projectforge.local/schemas/agent-assignment.schema.json",
-  "title": "ProjectForge agent assignment contract",
+  "title": "ProjectForge agent assignment contract 1.1.0",
   "type": "object",
   "additionalProperties": false,
-  "required": ["id", "role_id", "name", "mission", "responsibilities", "exclusions", "inputs", "outputs", "dependencies", "acceptance_criteria", "handoff_requirements", "required_capabilities", "supporting_skills"],
+  "required": [
+    "id",
+    "role_id",
+    "name",
+    "mission",
+    "responsibilities",
+    "exclusions",
+    "inputs",
+    "outputs",
+    "prerequisites",
+    "result_contract",
+    "dependencies",
+    "acceptance_criteria",
+    "handoff_requirements",
+    "required_capabilities",
+    "supporting_skills"
+  ],
   "properties": {
-    "id": {"type": "string", "minLength": 1},
-    "role_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
-    "name": {"type": "string", "minLength": 1},
-    "mission": {"type": "string", "minLength": 1},
-    "responsibilities": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    "exclusions": {"type": "array", "items": {"type": "string"}},
-    "inputs": {"type": "array", "items": {"type": "string"}},
-    "outputs": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    "dependencies": {"type": "array", "items": {"type": "string"}},
-    "acceptance_criteria": {"type": "array", "items": {"type": "string"}, "minItems": 1},
-    "handoff_requirements": {"type": "array", "items": {"type": "string"}},
-    "required_capabilities": {"type": "array", "items": {"type": "string"}},
-    "supporting_skills": {"type": "array", "items": {"type": "string"}}
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "mission": {
+      "type": "string",
+      "minLength": 1
+    },
+    "responsibilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "exclusions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "handoff_requirements": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "required_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "supporting_skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "prerequisites": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "result_contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "expected_output_format",
+        "allowed_paths",
+        "protected_paths",
+        "required_checks",
+        "completion_criteria"
+      ],
+      "properties": {
+        "protocol_version": {
+          "const": "1.0.0"
+        },
+        "expected_output_format": {
+          "type": "string",
+          "minLength": 1
+        },
+        "allowed_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "protected_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "completion_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    }
   }
 }

@@ -12,6 +12,8 @@ from .changes import compare_manifests, diff_markdown
 from .classification import classify_project
 from .common import catalog, new_manifest, now_utc, read_json, skill_root, write_text
 from .discovery import discover_environment, inspect_skill, match_capabilities
+from .handoffs import result_sha256, validate_agent_result, validate_result_location
+from .migrations import CURRENT_MANIFEST_VERSION, migrate_manifest
 from .optimization import _estimate, optimize_team
 from .rendering import render_html, render_markdown
 from .security import redact_sensitive
@@ -79,6 +81,33 @@ def _parser() -> argparse.ArgumentParser:
     validate.add_argument("--catalog-only", action="store_true")
     validate.add_argument("--format", choices=["text", "json"], default="text")
 
+    migrate = sub.add_parser("migrate", help="migrate a supported manifest to the current schema version")
+    migrate.add_argument("manifest", type=Path)
+    migrate.add_argument("--output", required=True, type=Path, help="new manifest path; the source file is never rewritten")
+    migrate.add_argument("--force", action="store_true")
+    migrate.add_argument("--dry-run", action="store_true")
+
+    resolve = sub.add_parser("resolve-dependencies", help="apply supervisor-confirmed role prerequisite resolutions")
+    resolve.add_argument("manifest", type=Path)
+    resolve.add_argument("resolutions", type=Path, help="JSON array of assignment_id, prerequisite, provider_assignment_id, and kind")
+    resolve.add_argument("--apply", action="store_true")
+    resolve.add_argument("--dry-run", action="store_true")
+    resolve.add_argument("--format", choices=["text", "json"], default="json")
+
+    validate_result = sub.add_parser("validate-result", help="validate an agent result against its assignment and manifest version")
+    validate_result.add_argument("manifest", type=Path)
+    validate_result.add_argument("result", type=Path)
+    validate_result.add_argument("--format", choices=["text", "json"], default="text")
+
+    record_result = sub.add_parser("record-result", help="record a validated result and supervisor review in the manifest")
+    record_result.add_argument("manifest", type=Path)
+    record_result.add_argument("result", type=Path)
+    record_result.add_argument("--review", choices=["pending", "accepted", "rejected", "rework_required"], default="pending")
+    record_result.add_argument("--reviewer")
+    record_result.add_argument("--review-notes", default="")
+    record_result.add_argument("--apply", action="store_true", help="append the result to the manifest execution ledger")
+    record_result.add_argument("--dry-run", action="store_true")
+
     render = sub.add_parser("render", help="generate Markdown and/or offline HTML from a validated manifest")
     render.add_argument("manifest", type=Path)
     render.add_argument("--output-dir", required=True, type=Path)
@@ -126,6 +155,11 @@ def _text_report(value: Any) -> str:
     if isinstance(value, dict) and "selected_role_ids" in value:
         lines = [f"Mode: {value['mode']}; selection: {value['selection_mode']}", f"Approval required: {str(value['approval_required']).lower()}", "Team: supervisor + " + (", ".join(value["selected_role_ids"]) or "no specialists")]
         lines.extend(f"- {line}" for line in value["rationale"])
+        for item in value.get("unresolved_prerequisites", []):
+            lines.append(f"- Unresolved prerequisite for {item['assignment_id']}: {item['prerequisite']}")
+            if item.get("candidate_providers"):
+                candidates = ", ".join(f"{candidate['assignment_id']} ({', '.join(candidate['matched_terms'])})" for candidate in item["candidate_providers"])
+                lines.append(f"    Provider hints requiring supervisor confirmation: {candidates}")
         lines.append(f"Estimated orchestration tokens: {value['estimates']['estimated_input_tokens']} input / {value['estimates']['estimated_output_tokens']} output")
         metrics = value["metrics"]
         lines.append(f"Team metrics: independence {metrics['workstream_independence']['score']:.2f}; overlap pairs {metrics['role_overlap']['pair_count']}; research complexity {metrics['research_complexity']['score']:.2f}; integration complexity {metrics['integration_complexity']['score']:.2f}; handoffs {metrics['handoffs']}; review effort {metrics['expected_review_effort_points']:.2f} points")
@@ -254,6 +288,8 @@ def _cmd_match(args: argparse.Namespace) -> int:
 
 def _cmd_optimize(args: argparse.Namespace) -> int:
     manifest = _load_manifest(args.manifest)
+    if args.apply and manifest.get("schema_version") != CURRENT_MANIFEST_VERSION:
+        raise ValueError(f"Applying team changes requires manifest {CURRENT_MANIFEST_VERSION}; run 'migrate' first")
     profiles = _load_profiles(args.role_file)
     mode = args.mode or manifest["discovery"]["mode"]
     selection_mode = args.selection_mode or ("manual" if args.role else manifest["team"].get("selection_mode", "dynamic"))
@@ -314,6 +350,184 @@ def _cmd_validate(args: argparse.Namespace) -> int:
             for blocker in manifest_result["readiness"]["blockers"]:
                 print(f"- {blocker}")
     return 0 if not all_errors else 1
+
+
+def _cmd_migrate(args: argparse.Namespace) -> int:
+    source = _load_manifest(args.manifest)
+    source_errors = validate_manifest(source)
+    if source_errors:
+        raise ValueError("Refusing to migrate an invalid source manifest: " + "; ".join(source_errors))
+    if args.manifest.expanduser().resolve() == args.output.expanduser().resolve():
+        raise ValueError("Migration output must be a different path; the source manifest is preserved")
+    migrated = migrate_manifest(source, CURRENT_MANIFEST_VERSION)
+    errors = validate_manifest(migrated)
+    if errors:
+        raise ValueError("Migrated manifest is invalid: " + "; ".join(errors))
+    write_text(args.output, json.dumps(migrated, ensure_ascii=False, indent=2) + "\n", force=args.force, dry_run=args.dry_run)
+    print(("Dry run: would write " if args.dry_run else "Migrated to ") + str(args.output))
+    return 0
+
+
+def _cmd_resolve_dependencies(args: argparse.Namespace) -> int:
+    manifest = _load_manifest(args.manifest)
+    if manifest.get("schema_version") != CURRENT_MANIFEST_VERSION:
+        raise ValueError(f"Dependency resolution requires manifest {CURRENT_MANIFEST_VERSION}; run 'migrate' first")
+    resolutions = read_json(args.resolutions)
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError as exc:
+        raise RuntimeError("Dependency resolution requires jsonschema. Install it with: python3 -m pip install -r projectforge/requirements.txt") from exc
+    resolution_schema = read_json(skill_root() / "schemas" / "dependency-resolution.schema.json")
+    Draft202012Validator.check_schema(resolution_schema)
+    resolution_errors = list(Draft202012Validator(resolution_schema).iter_errors(resolutions))
+    if resolution_errors:
+        raise ValueError("Invalid dependency resolutions: " + "; ".join(error.message for error in resolution_errors))
+    assignments = [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]
+    assignment_map = {item["id"]: item for item in assignments}
+    added: list[dict[str, str]] = []
+    for index, item in enumerate(resolutions):
+        if not isinstance(item, dict):
+            raise ValueError(f"Resolution {index} must be an object")
+        required = {"assignment_id", "prerequisite", "provider_assignment_id", "kind"}
+        if set(item) != required:
+            raise ValueError(f"Resolution {index} must contain exactly: {', '.join(sorted(required))}")
+        source_id, prerequisite = item["assignment_id"], item["prerequisite"]
+        provider_id, kind = item["provider_assignment_id"], item["kind"]
+        if source_id not in assignment_map:
+            raise ValueError(f"Resolution {index} refers to unknown assignment_id {source_id!r}")
+        if provider_id not in assignment_map:
+            raise ValueError(f"Resolution {index} refers to unknown provider_assignment_id {provider_id!r}")
+        if source_id == provider_id:
+            raise ValueError(f"Resolution {index} cannot assign a prerequisite to the same assignment")
+        if not isinstance(prerequisite, str) or prerequisite not in assignment_map[source_id].get("prerequisites", []):
+            raise ValueError(f"Resolution {index} prerequisite must exactly match one declared by {source_id!r}")
+        if kind not in {"blocks", "informs", "reviews"}:
+            raise ValueError(f"Resolution {index} kind must be blocks, informs, or reviews")
+        prior_mapping = next((current for current in manifest["dependencies"] if current.get("resolution_source") == "role_prerequisite" and current["from"] == source_id and current.get("prerequisite") == prerequisite), None)
+        if prior_mapping:
+            raise ValueError(f"Prerequisite {prerequisite!r} for {source_id!r} is already mapped to {prior_mapping['to']!r} ({prior_mapping['kind']})")
+        edge = {"from": source_id, "to": provider_id, "kind": kind, "prerequisite": prerequisite, "resolution_source": "role_prerequisite"}
+        existing = next((current for current in manifest["dependencies"] if (current["from"], current["to"], current["kind"]) == (source_id, provider_id, kind)), None)
+        if existing:
+            if existing.get("prerequisite"):
+                raise ValueError(f"Prerequisite resolution already exists for {source_id!r}: {prerequisite!r}")
+            existing.update({"prerequisite": prerequisite, "resolution_source": "role_prerequisite"})
+        else:
+            manifest["dependencies"].append(edge)
+        added.append(edge)
+    resolved = {(edge["from"], edge.get("prerequisite")) for edge in manifest["dependencies"] if edge.get("resolution_source") == "role_prerequisite"}
+    unresolved = [
+        {"assignment_id": assignment["id"], "prerequisite": prerequisite}
+        for assignment in assignments
+        for prerequisite in assignment.get("prerequisites", [])
+        if (assignment["id"], prerequisite) not in resolved
+    ]
+    errors = validate_manifest(manifest)
+    if errors:
+        raise ValueError("Dependency graph is invalid: " + "; ".join(errors))
+    if args.apply:
+        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+    report = {"applied": bool(args.apply and not args.dry_run), "added": added, "unresolved": unresolved, "schedule_note": "blocks and reviews edges order assignments; informs edges preserve parallel scheduling"}
+    _emit(report, args.format)
+    return 0
+
+
+def _load_agent_result(manifest_path: Path, result_path: Path) -> tuple[dict[str, Any], dict[str, Any], str]:
+    manifest = _load_manifest(manifest_path)
+    manifest_errors = validate_manifest(manifest)
+    if manifest_errors:
+        raise ValueError("Manifest is invalid: " + "; ".join(manifest_errors))
+    if manifest.get("schema_version") != CURRENT_MANIFEST_VERSION:
+        raise ValueError(f"Agent result protocol requires manifest {CURRENT_MANIFEST_VERSION}; run 'migrate' first")
+    result = read_json(result_path)
+    if not isinstance(result, dict):
+        raise ValueError("Agent result root must be an object")
+    relative_result = validate_result_location(result_path, manifest_path)
+    recorded = next((item for item in manifest.get("execution", {}).get("results", []) if item["result_file"] == relative_result), None)
+    if recorded and recorded["result_sha256"] != result_sha256(result_path):
+        raise ValueError(f"Recorded result file {relative_result!r} has changed since it was added to the execution ledger")
+    return manifest, result, relative_result
+
+
+def _cmd_validate_result(args: argparse.Namespace) -> int:
+    manifest, result, relative_result = _load_agent_result(args.manifest, args.result)
+    errors = validate_agent_result(result, manifest)
+    ledger = manifest["execution"]["results"]
+    if any(item["result_id"] == result.get("result_id") for item in ledger):
+        errors.append(f"result_id {result.get('result_id')!r} is already recorded")
+    if any(item["result_file"] == relative_result for item in ledger):
+        errors.append(f"result file {relative_result!r} is already recorded")
+    if any(item["assignment_id"] == result.get("assignment_id") and item["attempt"] == result.get("attempt") for item in ledger):
+        errors.append(f"attempt {result.get('attempt')!r} is already recorded for assignment {result.get('assignment_id')!r}")
+    report = {"valid": not errors, "result_id": result.get("result_id"), "assignment_id": result.get("assignment_id"), "errors": errors}
+    if args.format == "json":
+        _emit(report, "json")
+    else:
+        print("Agent result is valid." if not errors else "Agent result validation failed:")
+        for error in errors:
+            print(f"- {error}")
+    return 0 if not errors else 1
+
+
+def _cmd_record_result(args: argparse.Namespace) -> int:
+    manifest, result, relative_result = _load_agent_result(args.manifest, args.result)
+    if args.review != "pending" and not args.reviewer:
+        raise ValueError("Provide --reviewer for accepted, rejected, or rework_required decisions")
+    errors = validate_agent_result(result, manifest, args.review)
+    ledger = manifest["execution"]["results"]
+    by_id = next((item for item in ledger if item["result_id"] == result.get("result_id")), None)
+    by_path = next((item for item in ledger if item["result_file"] == relative_result), None)
+    if by_id is not by_path and (by_id is not None or by_path is not None):
+        errors.append("result ID or result file is already associated with a different ledger entry")
+    existing = by_id or by_path
+    if existing:
+        if existing["review_status"] != "pending":
+            errors.append("a recorded supervisor decision is final; submit a new result attempt for rework")
+        elif args.review == "pending":
+            errors.append("this result is already pending review; provide a supervisor decision to update it")
+    assignment_id = result.get("assignment_id")
+    if not existing and any(item["assignment_id"] == assignment_id and item["attempt"] == result.get("attempt") for item in ledger):
+        errors.append("an assignment may have only one immutable result file per attempt")
+    if args.review == "accepted" and not errors:
+        root = args.manifest.resolve().parent
+        for output in result["outputs"]:
+            candidate = (root / output["path"]).resolve()
+            try:
+                candidate.relative_to(root)
+            except ValueError:
+                errors.append(f"output {output['path']!r} resolves outside the manifest directory")
+                continue
+            if not candidate.exists():
+                errors.append(f"accepted output {output['path']!r} does not exist")
+    if errors:
+        raise ValueError("Agent result cannot be recorded: " + "; ".join(errors))
+    if existing:
+        existing.update({"review_status": args.review, "reviewed_at": now_utc(), "reviewer": args.reviewer})
+        if args.review_notes:
+            existing["review_notes"] = args.review_notes
+        action = "review"
+    else:
+        manifest["execution"]["results"].append({
+            "result_id": result["result_id"], "assignment_id": assignment_id,
+            "manifest_version": result["manifest_version"], "status": result["status"],
+            "attempt": result["attempt"], "prior_result_id": result["prior_result_id"],
+            "result_file": relative_result, "result_sha256": result_sha256(args.result),
+            "review_status": args.review, "created_at": result["created_at"],
+            **({"reviewed_at": now_utc()} if args.review != "pending" else {}),
+            **({"reviewer": args.reviewer} if args.reviewer else {}),
+            **({"review_notes": args.review_notes} if args.review_notes else {}),
+        })
+        action = "append"
+    manifest["discovery"]["updated_at"] = now_utc()
+    validation_errors = validate_manifest(manifest)
+    if validation_errors:
+        raise ValueError("Updated manifest is invalid: " + "; ".join(validation_errors))
+    if args.apply:
+        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+    else:
+        print(f"Dry run: result is valid and would {action} the execution ledger; pass --apply to record it.")
+    _emit({"result_id": result["result_id"], "assignment_id": assignment_id, "status": result["status"], "review_status": args.review, "action": action, "recorded": bool(args.apply and not args.dry_run)}, "json")
+    return 0
 
 
 def _cmd_render(args: argparse.Namespace) -> int:
@@ -401,7 +615,8 @@ def _cmd_codex_agents(args: argparse.Namespace) -> int:
     for assignment in manifest["team"]["specialists"]:
         if not re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", assignment["role_id"]):
             raise ValueError(f"Unsafe Codex agent filename derived from role ID {assignment['role_id']!r}")
-        instructions = [assignment["mission"], "", "Responsibilities:", *[f"- {item}" for item in assignment["responsibilities"]], "", "Exclusions:", *[f"- {item}" for item in assignment["exclusions"]], "", "Inputs:", *[f"- {item}" for item in assignment["inputs"]], "", "Outputs:", *[f"- {item}" for item in assignment["outputs"]], "", "Dependencies:", *[f"- {item}" for item in assignment["dependencies"]], "", "Acceptance criteria:", *[f"- {item}" for item in assignment["acceptance_criteria"]], "", "Handoff requirements:", *[f"- {item}" for item in assignment["handoff_requirements"]], "", "Required capabilities:", *[f"- {item}" for item in assignment["required_capabilities"]], "", "Supporting skill categories:", *[f"- {item}" for item in assignment["supporting_skills"]], "", "Use only capabilities verified in the active session. Do not claim a capability or research result without evidence. These instructions do not change the parent session permissions or authorization."]
+        result_contract = assignment.get("result_contract", {})
+        instructions = [assignment["mission"], "", "Responsibilities:", *[f"- {item}" for item in assignment["responsibilities"]], "", "Exclusions:", *[f"- {item}" for item in assignment["exclusions"]], "", "Inputs:", *[f"- {item}" for item in assignment["inputs"]], "", "Outputs:", *[f"- {item}" for item in assignment["outputs"]], "", "Dependencies:", *[f"- {item}" for item in assignment["dependencies"]], "", "Acceptance criteria:", *[f"- {item}" for item in assignment["acceptance_criteria"]], "", "Handoff requirements:", *[f"- {item}" for item in assignment["handoff_requirements"]], "", "Provider-neutral result contract (schemas/agent-result.schema.json):", f"- Protocol version: {result_contract.get('protocol_version', '1.0.0')}", f"- Expected output: {result_contract.get('expected_output_format', 'JSON result')}", f"- Allowed paths: {', '.join(result_contract.get('allowed_paths', [])) or 'none; return findings without writing files'}", f"- Protected paths: {', '.join(result_contract.get('protected_paths', [])) or 'none listed'}", f"- Required checks: {', '.join(result_contract.get('required_checks', [])) or 'none specified'}", "- Return a distinct result_id and attempt number. Preserve failures and link retries to the preceding rejected or rework-required result.", "- Report evidence and actual check outcomes. Do not claim validation that was not performed, or supervisor acceptance.", "", "Required capabilities:", *[f"- {item}" for item in assignment["required_capabilities"]], "", "Supporting skill categories:", *[f"- {item}" for item in assignment["supporting_skills"]], "", "Use only capabilities verified in the active session. Do not claim a capability or research result without evidence. These instructions do not change the parent session permissions or authorization."]
         mapping = {"name": _toml_string(assignment["role_id"]), "description": _toml_string(assignment["mission"]), "developer_instructions": _toml_string("\n".join(instructions))}
         content = re.sub(r"\{\{(\w+)\}\}", lambda match: mapping.get(match.group(1), ""), template)
         outputs[output_dir / f"{assignment['role_id']}.toml"] = content
@@ -417,7 +632,7 @@ def _cmd_codex_agents(args: argparse.Namespace) -> int:
     return 0
 
 
-COMMANDS = {"init": _cmd_init, "roles": _cmd_roles, "classify": _cmd_classify, "inspect-skill": _cmd_inspect_skill, "discover": _cmd_discover, "match": _cmd_match, "optimize": _cmd_optimize, "validate": _cmd_validate, "render": _cmd_render, "diff": _cmd_diff, "estimate": _cmd_estimate, "codex-agents": _cmd_codex_agents}
+COMMANDS = {"init": _cmd_init, "roles": _cmd_roles, "classify": _cmd_classify, "inspect-skill": _cmd_inspect_skill, "discover": _cmd_discover, "match": _cmd_match, "optimize": _cmd_optimize, "validate": _cmd_validate, "migrate": _cmd_migrate, "resolve-dependencies": _cmd_resolve_dependencies, "validate-result": _cmd_validate_result, "record-result": _cmd_record_result, "render": _cmd_render, "diff": _cmd_diff, "estimate": _cmd_estimate, "codex-agents": _cmd_codex_agents}
 
 
 def main(argv: list[str] | None = None) -> int:

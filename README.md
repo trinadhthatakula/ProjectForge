@@ -55,7 +55,31 @@ python3 scripts/projectforge.py render /path/to/projectforge.json \
   --output-dir /path/to/kickoff --format both --dry-run
 ```
 
-See `examples/` for Android, web SaaS, Python automation, and cross-platform manifests. Run the automated suite with:
+New manifests use schema version `1.1.0`. Version `1.0.0` remains supported. Migrate an older manifest to a new file; ProjectForge validates both the source and migrated result and does not rewrite the source:
+
+```sh
+python3 scripts/projectforge.py migrate /path/to/projectforge.json \
+  --output /path/to/projectforge-1.1.json
+```
+
+Resolve selected-role prerequisites only after the supervisor confirms the provider assignment and relationship. The JSON input is an array following `schemas/dependency-resolution.schema.json`; `blocks` and `reviews` edges sequence work, while `informs` edges preserve parallel scheduling.
+
+```sh
+python3 scripts/projectforge.py resolve-dependencies \
+  /path/to/projectforge-1.1.json /path/to/resolutions.json --apply
+```
+
+Provider results use `schemas/agent-result.schema.json`, independent of model provider. Before dispatch, set each assignment's allowed paths, protected paths, and required checks. A path ending in `/` covers that directory and its descendants; other paths match exactly. Validate results before review; accepted results must pass the required checks and point to existing project-local outputs. Keep every retry in a separate result file and link it to the previous rejected or rework-required attempt.
+
+```sh
+python3 scripts/projectforge.py validate-result \
+  /path/to/projectforge-1.1.json /path/to/.projectforge/results/result-001.json
+python3 scripts/projectforge.py record-result \
+  /path/to/projectforge-1.1.json /path/to/.projectforge/results/result-001.json \
+  --review accepted --reviewer supervisor --apply
+```
+
+See `examples/` for Android, web SaaS, Python automation, and cross-platform manifests. GitHub Actions validates schemas and examples, runs the CLI smoke workflow, and runs the automated suite on Python 3.11–3.13. To run the suite locally:
 
 ```sh
 python3 -m unittest discover -s tests -v
@@ -72,7 +96,7 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
 
 - `SKILL.md` contains the shared workflow and key constraints.
 - `references/roles.json` contains the specialist catalogue and links each built-in role to its focused guide under `references/role-guides/`; other references explain discovery, architecture, and runtime limits.
-- `schemas/` defines the canonical project manifest, role profile, and assignment contract.
+- `schemas/` defines versioned project manifests, role profiles, assignment contracts, dependency resolutions, and provider-neutral agent results.
 - `scripts/` implements deterministic operations. It reads skill metadata and agent configuration but never executes discovered scripts.
 - `templates/` holds document framing; renderers fill both formats from the same manifest.
 - `examples/` are complete manifests. `tests/` exercise CLI behavior and safety invariants.

@@ -2,7 +2,9 @@
 
 ## Portable contract
 
-Project manifests, role profiles, capability reports, and assignment contracts are runtime independent. When a runtime lacks verified subagent creation, ProjectForge returns the same structured assignments as delegation briefs. It must not claim work was delegated or agents were spawned based only on custom-agent files being present.
+Project manifests, role profiles, capability reports, assignment contracts, and agent result files are runtime independent. Providers receive the same assignment and result schema; provider-specific adapters may translate transport formats but do not alter the core contract. When a runtime lacks verified subagent creation, ProjectForge returns the same structured assignments as delegation briefs. It must not claim work was delegated or agents were spawned based only on custom-agent files being present.
+
+An assignment's result contract names allowed and protected output paths, required checks, and completion criteria. The provider returns an `agent-result.schema.json` document with a unique result ID, manifest version, status, evidence, checks, unresolved questions, risks, assumptions, handoff notes, and retry linkage. ProjectForge validates the structure and path rules; the supervisor reviews artifact contents and owns acceptance. A provider's `completed` or `validated` status is not acceptance.
 
 ## Codex
 
