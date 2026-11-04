@@ -104,3 +104,7 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
 ## Safety and limitations
 
 Capability discovery is local and best-effort. Installed CLI binaries or skill files do not prove that an agent session exposes those tools. The report preserves unknowns rather than claiming they are usable. Pricing, token counts, and team cost scores are planning estimates. Dependency compatibility must be researched and recorded with evidence. Codex custom-agent generation is optional and project scoped; generated definitions do not change global configuration or spawn agents.
+
+## License, security, and contributions
+
+ProjectForge is licensed under [GPL-3.0-or-later](LICENSE). See [CONTRIBUTING.md](CONTRIBUTING.md) for development and pull request guidance. Report vulnerabilities privately using the process in [SECURITY.md](SECURITY.md); do not post them in public issues.

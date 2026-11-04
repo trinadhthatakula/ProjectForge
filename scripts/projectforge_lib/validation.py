@@ -312,17 +312,18 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
         errors.append("milestone dependency cycle: " + " -> ".join(milestone_cycle))
     for field in ("deliverables", "risks", "assumptions", "decisions"):
         errors.extend(_check_unique_ids(manifest[field], field))
-    # The assignment contract is embedded in the manifest schema; validate it directly as well for a useful independent gate.
-    try:
-        from jsonschema import Draft202012Validator
-    except ImportError as exc:
-        raise RuntimeError("Assignment validation requires jsonschema. Install it with: python3 -m pip install -r projectforge/requirements.txt") from exc
-    assignment_schema = read_json(skill_root() / "schemas" / "agent-assignment.schema.json")
-    Draft202012Validator.check_schema(assignment_schema)
-    assignment_validator = Draft202012Validator(assignment_schema)
-    for assignment in assignments:
-        for error in assignment_validator.iter_errors(assignment):
-            errors.append(f"assignment {assignment['id']}.{'.'.join(str(x) for x in error.absolute_path)}: {error.message}")
+    # The manifest schema embeds the matching assignment version. Apply the standalone current contract only to current manifests.
+    if version == "1.1.0":
+        try:
+            from jsonschema import Draft202012Validator
+        except ImportError as exc:
+            raise RuntimeError("Assignment validation requires jsonschema. Install it with: python3 -m pip install -r projectforge/requirements.txt") from exc
+        assignment_schema = read_json(skill_root() / "schemas" / "agent-assignment.schema.json")
+        Draft202012Validator.check_schema(assignment_schema)
+        assignment_validator = Draft202012Validator(assignment_schema)
+        for assignment in assignments:
+            for error in assignment_validator.iter_errors(assignment):
+                errors.append(f"assignment {assignment['id']}.{'.'.join(str(x) for x in error.absolute_path)}: {error.message}")
     if manifest["readiness"]["status"] == "ready" and manifest["readiness"]["blockers"]:
         errors.append("readiness.status cannot be 'ready' while blockers remain")
     if manifest["readiness"]["status"] == "ready":

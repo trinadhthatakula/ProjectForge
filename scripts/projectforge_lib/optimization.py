@@ -234,9 +234,20 @@ def optimize_team(
     project_text, open_text = _project_text(manifest)
     platforms = manifest["project"].get("platforms", [])
     scores = {role["id"]: _score_role(role, project_text, platforms, open_text) for role in specialist_profiles}
-    database_terms = ("database architecture", "data model", "schema migration", "query optimization", "data warehouse", "database architect", "multi-tenant data")
+    database_terms = (
+        "database architecture", "database design", "database schema", "data model", "schema migration",
+        "query optimization", "data warehouse", "database architect", "multi-tenant data", "tenant isolation",
+        "postgresql", "backup and restore", "data retention", "audit log", "transactions",
+    )
     local_stores = manifest["data_api"].get("datastores", [])
-    local_only = bool(local_stores) and not manifest["data_api"].get("apis") and all(any(token in store.casefold() for token in ("local", "room", "sqlite", "filesystem", "file system")) for store in local_stores)
+    project_signals = project_text + " " + open_text
+    local_storage_terms = ("local database", "local storage", "offline-first", "offline first", "room database", "sqlite", "file system", "filesystem")
+    local_context = any(term in project_signals for term in local_storage_terms)
+    local_store_declarations = not local_stores or all(
+        any(token in store.casefold() for token in ("local", "room", "sqlite", "filesystem", "file system"))
+        for store in local_stores
+    )
+    local_only = local_context and local_store_declarations and not manifest["data_api"].get("apis")
     if local_only and not any(term in project_text + " " + open_text for term in database_terms):
         prior_score, prior_reasons = scores.get("database-architect", (0.0, []))
         if prior_score:

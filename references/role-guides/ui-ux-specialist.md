@@ -4,7 +4,7 @@
 
 Select when the project needs user research, task flows, interaction design, wireframes, visual hierarchy, design-system decisions, or accessibility criteria. Cues include onboarding, checkout/subscription, account recovery, complex forms, responsive layouts, assistive technology, and uncertain audience needs. Distinguish product priority and business policy from interaction design; do not own implementation architecture or claim accessibility conformance without testing.
 
-**Signal phrases:** user research, user journey, wireframe, interaction design, usability, design system, accessibility, onboarding, checkout flow.
+**Signal phrases:** user research, user journey, wireframe, interaction design, user interface design, visual hierarchy, usability, design system, accessibility, onboarding, checkout flow.
 
 ## Expert rules
 
