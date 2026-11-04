@@ -4,7 +4,7 @@ ProjectForge turns an early software, automation, AI, or cross-platform idea int
 
 ## Install with `npx`
 
-Use the [Vercel Skills CLI](https://github.com/vercel-labs/skills/blob/main/docs/commands.md) from the project where you want to use ProjectForge. Its current release requires Node.js 22.20 or newer.
+Use the [Vercel Skills CLI](https://github.com/vercel-labs/skills/blob/main/docs/commands.md) from the project where you want to use ProjectForge. Its current release requires [Node.js 22.20 or newer](https://github.com/vercel-labs/skills/blob/main/package.json).
 
 ```sh
 npx skills add trinadhthatakula/ProjectForge --skill projectforge --agent codex
