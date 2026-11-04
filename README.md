@@ -1,22 +1,22 @@
 # ProjectForge
 
-ProjectForge turns an early software, automation, AI, or cross-platform idea into a researched kickoff specification. It guides adaptive discovery, recommends a right-sized specialist team, reports runtime capability gaps, validates a versioned manifest, and generates Markdown plus standalone offline HTML.
+ProjectForge is a provider-neutral Agent Skill for turning an early software, automation, AI, or cross-platform idea into a researched kickoff specification. It works in any agent runtime that can load Agent Skills instructions; its shared workflow and assignment/result schemas do not depend on a model provider. It guides adaptive discovery, recommends a right-sized specialist team, reports runtime capability gaps, validates a versioned manifest, and generates Markdown plus standalone offline HTML.
 
 ## Install with `npx`
 
-Use the [Vercel Skills CLI](https://github.com/vercel-labs/skills/blob/main/docs/commands.md) from the project where you want to use ProjectForge. Its current release requires [Node.js 22.20 or newer](https://github.com/vercel-labs/skills/blob/main/package.json).
+Use the [Vercel Skills CLI](https://github.com/vercel-labs/skills/blob/main/docs/commands.md) from the project where you want to use ProjectForge. Its current release requires [Node.js 22.20 or newer](https://github.com/vercel-labs/skills/blob/main/package.json). Select every compatible target agent with `--agent '*'`:
 
 ```sh
-npx skills add trinadhthatakula/ProjectForge --skill projectforge --agent codex
+npx skills add trinadhthatakula/ProjectForge --skill projectforge --agent '*'
 ```
 
-This installs ProjectForge for Codex in the current project. Add `--global` (or `-g`) to install it for your user account instead:
+This installs the same ProjectForge skill for all agents supported by the CLI in the current project. Add `--global` (or `-g`) to install it for your user account instead:
 
 ```sh
-npx skills add trinadhthatakula/ProjectForge --skill projectforge --agent codex --global
+npx skills add trinadhthatakula/ProjectForge --skill projectforge --agent '*' --global
 ```
 
-The CLI also supports other agents; replace `codex` with a supported agent name. See its [supported agents](https://github.com/vercel-labs/skills/blob/main/docs/agents.md).
+To target a subset, replace `'*'` with the supported agent name or names. See the CLI's [supported agents](https://github.com/vercel-labs/skills/blob/main/docs/agents.md). Other Agent Skills-compatible runtimes can load `SKILL.md` through their own skill installer.
 
 ## Run the helper CLI
 
@@ -85,7 +85,7 @@ See `examples/` for Android, web SaaS, Python automation, and cross-platform man
 python3 -m unittest discover -s tests -v
 ```
 
-Generate selected specialist agent files only when a target project explicitly wants Codex project-scoped agents:
+ProjectForge's shared instructions and contracts are provider-neutral. As an optional runtime-specific output, generate selected Codex project-scoped agent files only when the target project wants them:
 
 ```sh
 python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
@@ -94,7 +94,7 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
 
 ## Package layout
 
-- `SKILL.md` contains the shared workflow and key constraints.
+- `SKILL.md` contains the provider-neutral shared workflow and key constraints. `agents/openai.yaml` is optional display metadata for hosts that use it; it does not change the skill's supported runtimes.
 - `references/roles.json` contains the specialist catalogue and links each built-in role to its focused guide under `references/role-guides/`; other references explain discovery, architecture, and runtime limits.
 - `schemas/` defines versioned project manifests, role profiles, assignment contracts, dependency resolutions, and provider-neutral agent results.
 - `scripts/` implements deterministic operations. It reads skill metadata and agent configuration but never executes discovered scripts.
@@ -103,7 +103,7 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
 
 ## Safety and limitations
 
-Capability discovery is local and best-effort. Installed CLI binaries or skill files do not prove that an agent session exposes those tools. The report preserves unknowns rather than claiming they are usable. Pricing, token counts, and team cost scores are planning estimates. Dependency compatibility must be researched and recorded with evidence. Codex custom-agent generation is optional and project scoped; generated definitions do not change global configuration or spawn agents.
+Capability discovery is local and best-effort. Installed CLI binaries or skill files do not prove that an agent session exposes those tools. The report preserves unknowns rather than claiming they are usable. Pricing, token counts, and team cost scores are planning estimates. Dependency compatibility must be researched and recorded with evidence. Runtime-specific custom-agent generation is optional; generated definitions do not change global configuration or spawn agents.
 
 ## License, security, and contributions
 

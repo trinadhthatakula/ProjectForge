@@ -45,9 +45,9 @@ Role requirements match to discovered skill names/descriptions, tool names, and 
 
 The supervisor is always present and counts toward the total. `optimize` supports dynamic, manual, and hybrid selection and recommends no more than six specialists. It reports signal-based role relevance, overlap, workstream independence, coordination overhead, context needs, research and integration complexity, handoffs, estimated token use, and review effort. Confirmed project signals and selected requirements score above unresolved facts and questions, which remain visible in the rationale. These values are planning heuristics with visible calculation bases. Requested rosters beyond the limit are surfaced for user discussion; they are never silently truncated or accepted. Each specialist assignment has a contract validated against `schemas/agent-assignment.schema.json`.
 
-## Runtime adapters
+## Runtime portability
 
-The portable manifest, assignment contracts, dependency records, and agent result contract are runtime-neutral. The current adapter recognizes Codex and compatible Agent Skills directories. Codex specialist files use standalone TOML definitions in a target project’s `.codex/agents/`; ProjectForge keeps these as generated output, not active definitions in its own skill package. Runtime-specific concurrency fields are documented in `references/compatibility.md`. Other runtimes get delegation briefs unless their active capabilities are verified.
+The `SKILL.md`, manifest, assignment contracts, dependency records, and agent result contract are provider-neutral and shared by every compatible agent runtime. Runtime-specific discovery and delegation use the active host's capabilities; the local helper recognizes known metadata sources but does not define which runtimes may load the skill. Codex specialist files are one optional target-project output, using TOML definitions under `.codex/agents/`; they are not active definitions in the ProjectForge skill package. If a runtime has no verified delegation API or custom-agent format, use the same assignments as delegation briefs.
 
 ## Output and security
 
