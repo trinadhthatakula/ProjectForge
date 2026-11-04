@@ -162,7 +162,7 @@ def new_manifest(name: str, mode: str = "agent_decided") -> dict[str, Any]:
     project_id = slugify(name)
     supervisor = role_map()["supervisor"]
     return {
-        "schema_version": "1.1.0",
+        "schema_version": "1.2.0",
         "project": {
             "id": project_id,
             "name": name,

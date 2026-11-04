@@ -73,6 +73,25 @@ def _result_contract_items(contract: dict[str, Any]) -> list[str]:
     ]
 
 
+def _capability_match_rows(caps: dict[str, Any]) -> list[list[Any]]:
+    rows = []
+    for match in caps["role_matches"]:
+        for item in match["requirements"]:
+            verification = item.get("verification", {})
+            checks = verification.get("checks", {})
+            details = [
+                f"{name}: {check.get('status', 'unconfirmed')} ({'; '.join(check.get('evidence', []))})"
+                for name, check in checks.items()
+            ]
+            rows.append([
+                match["role_id"], item["capability"], item["kind"],
+                item.get("requirement_type", "capability"), item.get("source", "role_profile"),
+                item["status"], verification.get("status", "unverified"),
+                "; ".join(item["evidence"]), "; ".join(details) or "No verification checks recorded.",
+            ])
+    return rows
+
+
 def _html_table(headers: list[str], rows: list[list[Any]]) -> str:
     if not rows:
         return '<p class="empty">No entries.</p>'
@@ -189,7 +208,7 @@ def render_markdown(manifest: dict[str, Any]) -> str:
     sections.append("## Constraints\n\n### Security and privacy\n" + _md_list(constraints["security_privacy"]) + "\n\n**Offline:** " + _md(constraints["offline"]) + "\n\n**Monetization:** " + _md(constraints["monetization"]) + "\n\n### Performance\n" + _md_list(constraints["performance"]) + "\n\n### Accessibility\n" + _md_list(constraints["accessibility"]) + "\n\n### Localization\n" + _md_list(constraints["localization"]) + "\n\n### Deployment\n" + _md_list(constraints["deployment"]) + "\n\n**Budget:** " + _md(constraints["budget"]))
     caps = manifest["capability_report"]
     cap_plan_rows = [[item["role_id"], item["capability"], item["owner"], item["next_action"]] for item in manifest["readiness"].get("capability_plans", [])]
-    sections.append("## Capability matching report\n\n**Runtime:** " + _md(caps["runtime"]["name"]) + "; session availability: " + _md(caps["runtime"]["session_availability"]) + "\n\n### Capability matches\n\n" + _md_table(["Role", "Capability", "Kind", "Type", "Source", "Status", "Evidence"], [[match["role_id"], item["capability"], item["kind"], item.get("requirement_type", "capability"), item.get("source", "role_profile"), item["status"], "; ".join(item["evidence"])] for match in caps["role_matches"] for item in match["requirements"]]) + "\n\n### Gaps\n" + _md_list(caps["gaps"], "No gaps recorded.") + "\n\n### Capability remediation plans\n\n" + _md_table(["Role", "Capability", "Owner", "Next action"], cap_plan_rows))
+    sections.append("## Capability matching and verification report\n\n**Runtime:** " + _md(caps["runtime"]["name"]) + "; session availability: " + _md(caps["runtime"]["session_availability"]) + "\n\nDiscovery status is a metadata or active-inventory match. Verification status records whether access and fit for the requested work were checked.\n\n" + _md_table(["Role", "Capability", "Kind", "Type", "Source", "Discovery", "Verification", "Discovery evidence", "Verification checks and evidence"], _capability_match_rows(caps)) + "\n\n### Gaps\n" + _md_list(caps["gaps"], "No gaps recorded.") + "\n\n### Capability remediation plans\n\n" + _md_table(["Role", "Capability", "Owner", "Next action"], cap_plan_rows))
     team = manifest["team"]
     assignments = [team["supervisor"], *team["specialists"]]
     assignment_rows = [[item["name"], item["role_id"], item["mission"], "; ".join(item["outputs"]), "; ".join(item["dependencies"])] for item in assignments]
@@ -256,9 +275,9 @@ def render_html(manifest: dict[str, Any]) -> str:
     con = manifest["constraints"]
     add("constraints", "Constraints", '<div class="cards"><div class="card"><h3>Security and privacy</h3>' + _html_list(con["security_privacy"]) + '</div><div class="card"><h3>Performance</h3>' + _html_list(con["performance"]) + '</div><div class="card"><h3>Accessibility</h3>' + _html_list(con["accessibility"]) + '</div><div class="card"><h3>Localization</h3>' + _html_list(con["localization"]) + '</div><div class="card"><h3>Deployment</h3>' + _html_list(con["deployment"]) + '</div><div class="card"><h3>Offline</h3><p>' + _html(con["offline"]) + '</p><h3>Monetization</h3><p>' + _html(con["monetization"]) + '</p><h3>Budget</h3><p>' + _html(con["budget"]) + "</p></div></div>")
     caps = manifest["capability_report"]
-    match_rows = [[match["role_id"], item["capability"], item["kind"], item.get("requirement_type", "capability"), item.get("source", "role_profile"), item["status"], "; ".join(item["evidence"])] for match in caps["role_matches"] for item in match["requirements"]]
+    match_rows = _capability_match_rows(caps)
     cap_plan_rows = [[item["role_id"], item["capability"], item["owner"], item["next_action"]] for item in manifest["readiness"].get("capability_plans", [])]
-    add("capabilities", "Capability report", '<p>Runtime: <strong>' + _html(caps["runtime"]["name"]) + "</strong>; session availability: " + _html(caps["runtime"]["session_availability"]) + "</p>" + _html_table(["Role", "Capability", "Kind", "Type", "Source", "Status", "Evidence"], match_rows) + '<h3>Gaps</h3>' + _html_list(caps["gaps"], "No gaps recorded.") + '<h3>Capability remediation plans</h3>' + _html_table(["Role", "Capability", "Owner", "Next action"], cap_plan_rows) + '<details><summary>Discovered skills</summary>' + _html_table(["Skill", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in caps["skills"]]) + "</details><details><summary>Discovered agents and tools</summary>" + _html_table(["Capability", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in [*caps["agents"], *caps["tools"]]]) + "</details>")
+    add("capabilities", "Capability report", '<p>Runtime: <strong>' + _html(caps["runtime"]["name"]) + "</strong>; session availability: " + _html(caps["runtime"]["session_availability"]) + "</p><p>Discovery status is a metadata or active-inventory match. Verification status records whether access and fit for the requested work were checked.</p>" + _html_table(["Role", "Capability", "Kind", "Type", "Source", "Discovery", "Verification", "Discovery evidence", "Verification checks and evidence"], match_rows) + '<h3>Gaps</h3>' + _html_list(caps["gaps"], "No gaps recorded.") + '<h3>Capability remediation plans</h3>' + _html_table(["Role", "Capability", "Owner", "Next action"], cap_plan_rows) + '<details><summary>Discovered skills</summary>' + _html_table(["Skill", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in caps["skills"]]) + "</details><details><summary>Discovered agents and tools</summary>" + _html_table(["Capability", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in [*caps["agents"], *caps["tools"]]]) + "</details>")
     team = manifest["team"]
     assignments = [team["supervisor"], *team["specialists"]]
     cards = []

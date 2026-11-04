@@ -11,8 +11,8 @@ ProjectForge separates conversational judgment from deterministic checks. The sk
 | `SKILL.md` | Runtime-independent discovery and orchestration instructions with progressive disclosure. |
 | `references/roles.json` | Versioned expert profiles, role-specific trigger cues, capability expectations, collaboration relationships, and links to selected-role guides. |
 | `references/role-guides/` | Selected-role planning rules, domain cues, evidence requirements, boundaries, and handoff criteria. Read only guides for shortlisted roles. |
-| `scripts/projectforge.py` | CLI entry point for manifest creation, capability discovery, matching, optimization, validation, estimation, rendering, and diffing. |
-| `schemas/` | Draft 2020-12 schemas for versioned project manifests, expert roles, assignment contracts, dependency resolutions, and provider-neutral agent results. |
+| `scripts/projectforge.py` | CLI entry point for manifest creation, capability discovery and verification, matching, optimization, validation, estimation, rendering, and diffing. |
+| `schemas/` | Draft 2020-12 schemas for versioned project manifests, capability verification, expert roles, assignment contracts, dependency resolutions, and provider-neutral agent results. |
 | `templates/` | Markdown and standalone HTML presentation structure. |
 | `examples/` | Representative valid inputs for four project shapes. |
 | `tests/` | Standard-library `unittest` suite for script behaviors and safety invariants. |
@@ -26,14 +26,17 @@ flowchart LR
   R[Role catalogue] --> T[Team optimizer]
   C[Runtime capability inventory] --> T
   M --> T
-  T --> A[Assignment contracts and resolved dependency graph]
-  A --> V[Readiness and schema validation]
-  V --> X[Agent execution and result validation]
+  T --> V[Capability evidence verification]
+  V --> A[Assignment contracts and resolved dependency graph]
+  A --> Q[Readiness and schema validation]
+  Q --> X[Agent execution and result validation]
   X --> R[Supervisor acceptance or rework]
   R --> G[Markdown and offline HTML]
 ```
 
 The manifest is the canonical specification and execution ledger. Agent result files are separately versioned evidence records; the supervisor records their lifecycle and acceptance in the manifest. Commands that apply changes to an existing manifest are serialized per path and compare the file with the snapshot they read; stale updates fail instead of replacing newer changes. Reload the manifest, review the conflict, and rerun the intended operation. A generated document never becomes an alternate source of truth. Team optimization is explainable and advisory: the supervisor resolves context-sensitive decisions, and roster validation is strict about the seven-person ceiling. User choices and evidence take precedence over heuristic recommendations.
+
+Capability matching is a discovery stage, not proof of task fit. Manifest version 1.2.0 records a separate evidence-backed verification for accessibility, instructions, operation support, permissions, and expected output. Required capabilities must be verified before the readiness gate accepts `ready`.
 
 ## Capability model
 

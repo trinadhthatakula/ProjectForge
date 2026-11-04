@@ -18,10 +18,18 @@ from .optimization import _estimate, optimize_team
 from .rendering import render_html, render_markdown
 from .security import redact_sensitive
 from .validation import readiness_blockers, validate_manifest, validate_role_catalog
+from .verification import derive_verification_status, verification_errors
+
+
+_CAPABILITY_VERIFICATION_BLOCKERS = {
+    "Capability discovery was refreshed; required capabilities need verification again.",
+    "A required capability needs new verification.",
+    "Required capabilities must be verified against the active runtime.",
+}
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="projectforge", description="Discover capabilities, plan a small specialist team, validate a project manifest, and generate kickoff documents.")
+    parser = argparse.ArgumentParser(prog="projectforge", description="Discover and verify capabilities, plan a small specialist team, validate a project manifest, and generate kickoff documents.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     init = sub.add_parser("init", help="create a protected starter manifest")
@@ -94,6 +102,13 @@ def _parser() -> argparse.ArgumentParser:
     resolve.add_argument("--dry-run", action="store_true")
     resolve.add_argument("--format", choices=["text", "json"], default="json")
 
+    record_verification = sub.add_parser("record-verification", help="record evidence-based verification for discovered capabilities")
+    record_verification.add_argument("manifest", type=Path)
+    record_verification.add_argument("verifications", type=Path, help="JSON file validated by schemas/capability-verification.schema.json")
+    record_verification.add_argument("--apply", action="store_true", help="record the verification results in the manifest")
+    record_verification.add_argument("--dry-run", action="store_true")
+    record_verification.add_argument("--format", choices=["text", "json"], default="json")
+
     validate_result = sub.add_parser("validate-result", help="validate an agent result against its assignment and manifest version")
     validate_result.add_argument("manifest", type=Path)
     validate_result.add_argument("result", type=Path)
@@ -148,7 +163,8 @@ def _text_report(value: Any) -> str:
     if isinstance(value, dict) and "role_matches" in value:
         lines = [f"Runtime: {value['runtime']['name']} ({value['runtime']['session_availability']} session availability; inventory complete: {str(value['runtime'].get('session_inventory_complete', False)).lower()})", f"Discovered skills: {len(value.get('skills', []))}; agents: {len(value.get('agents', []))}; tools: {len(value.get('tools', []))}"]
         for match in value["role_matches"]:
-            lines.append(f"- {match['role_id']}: {match['requirement']} [{match['status']}]")
+            verification = match.get("verification", {}).get("status", "unverified")
+            lines.append(f"- {match['role_id']}: {match['requirement']} [discovery: {match['status']}; verification: {verification}]")
             lines.extend(f"    {source}" for source in match["evidence"])
         lines.extend(["Gaps:", *(f"- {gap}" for gap in value["gaps"] or ["None reported."])])
         return "\n".join(lines) + "\n"
@@ -281,10 +297,21 @@ def _cmd_discover(args: argparse.Namespace) -> int:
 
 def _cmd_match(args: argparse.Namespace) -> int:
     manifest, manifest_sha256 = _load_manifest_snapshot(args.manifest)
+    if args.apply and manifest.get("schema_version") != CURRENT_MANIFEST_VERSION:
+        raise ValueError(f"Applying a capability report requires manifest {CURRENT_MANIFEST_VERSION}; run 'migrate' first")
     profiles = _load_profiles(args.role_file)
     inventory = _discover_args(args)
     report = match_capabilities(manifest, inventory, profiles)
     if args.apply:
+        selected_role_ids = {item["role_id"] for item in [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]}
+        if manifest["readiness"]["status"] == "ready" and any(
+            item["role_id"] in selected_role_ids and item["kind"] == "required" for item in report["role_matches"]
+        ):
+            manifest["readiness"]["status"] = "needs_input"
+            manifest["readiness"]["checked_at"] = now_utc()
+            blocker = "Capability discovery was refreshed; required capabilities need verification again."
+            if blocker not in manifest["readiness"]["blockers"]:
+                manifest["readiness"]["blockers"].append(blocker)
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Capability report update is invalid: " + "; ".join(errors))
@@ -436,6 +463,92 @@ def _cmd_resolve_dependencies(args: argparse.Namespace) -> int:
         print(_save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run))
     report = {"applied": bool(args.apply and not args.dry_run), "added": added, "unresolved": unresolved, "schedule_note": "blocks and reviews edges order assignments; informs edges preserve parallel scheduling"}
     _emit(report, args.format)
+    return 0
+
+
+def _cmd_record_verification(args: argparse.Namespace) -> int:
+    manifest, manifest_sha256 = _load_manifest_snapshot(args.manifest)
+    manifest_errors = validate_manifest(manifest)
+    if manifest_errors:
+        raise ValueError("Manifest is invalid: " + "; ".join(manifest_errors))
+    if manifest.get("schema_version") != CURRENT_MANIFEST_VERSION:
+        raise ValueError(f"Capability verification requires manifest {CURRENT_MANIFEST_VERSION}; run 'migrate' first")
+
+    entries = read_json(args.verifications)
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError as exc:
+        raise RuntimeError("Capability verification requires jsonschema. Install it with: python3 -m pip install -r projectforge/requirements.txt") from exc
+    verification_schema = read_json(skill_root() / "schemas" / "capability-verification.schema.json")
+    Draft202012Validator.check_schema(verification_schema)
+    schema_errors = sorted(Draft202012Validator(verification_schema).iter_errors(entries), key=lambda error: tuple(str(part) for part in error.absolute_path))
+    if schema_errors:
+        messages = [f"{'.'.join(str(part) for part in error.absolute_path) or '$'}: {error.message}" for error in schema_errors]
+        raise ValueError("Invalid capability verification input: " + "; ".join(messages))
+
+    requirement_map = {
+        (role["role_id"], requirement["capability"].casefold(), requirement["kind"], requirement.get("requirement_type", "capability"), requirement.get("source", "role_profile")): requirement
+        for role in manifest["capability_report"]["role_matches"]
+        for requirement in role["requirements"]
+    }
+    selected_role_ids = {item["role_id"] for item in [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]}
+    updated = []
+    seen = set()
+    for index, entry in enumerate(entries["verifications"]):
+        record_errors = verification_errors(entry)
+        if record_errors:
+            raise ValueError(f"Verification {index} is invalid: " + "; ".join(record_errors))
+        key = (entry["role_id"], entry["capability"].casefold(), entry["kind"], entry["requirement_type"], entry["source"])
+        if key in seen:
+            raise ValueError(f"Verification {index} duplicates an earlier role/capability entry")
+        seen.add(key)
+        if entry["role_id"] not in selected_role_ids:
+            raise ValueError(f"Verification {index} names role {entry['role_id']!r}, which is not assigned in the manifest")
+        requirement = requirement_map.get(key)
+        if requirement is None:
+            raise ValueError(f"Verification {index} does not match a capability requirement in the manifest: {entry['role_id']} / {entry['capability']}")
+        status = derive_verification_status(entry["checks"])
+        verification = {
+            "status": status,
+            "discovery_generated_at": manifest["capability_report"]["generated_at"],
+            "recorded_at": now_utc(),
+            "recorded_by": redact_sensitive(entry["recorded_by"]),
+            "checks": redact_sensitive(entry["checks"]),
+        }
+        requirement["verification"] = verification
+        updated.append({"role_id": entry["role_id"], "capability": entry["capability"], "status": status})
+
+    manifest["capability_report"]["gaps"] = [
+        f"{role['role_id']}: {'assignment-specific ' if requirement.get('source') == 'assignment' else ''}{requirement['capability']} is discovered as {requirement['status']} and remains {requirement['verification']['status']}"
+        for role in manifest["capability_report"]["role_matches"]
+        for requirement in role["requirements"]
+        if role["role_id"] in selected_role_ids and requirement["kind"] == "required" and requirement["verification"]["status"] != "verified"
+    ]
+    has_unverified_required = any(
+        role["role_id"] in selected_role_ids and requirement["kind"] == "required" and requirement["verification"]["status"] != "verified"
+        for role in manifest["capability_report"]["role_matches"]
+        for requirement in role["requirements"]
+    )
+    if manifest["readiness"]["status"] == "ready" and has_unverified_required:
+        manifest["readiness"]["status"] = "needs_input"
+        manifest["readiness"]["checked_at"] = now_utc()
+        blocker = "A required capability needs new verification."
+        if blocker not in manifest["readiness"]["blockers"]:
+            manifest["readiness"]["blockers"].append(blocker)
+    if not has_unverified_required:
+        manifest["readiness"]["blockers"] = [
+            blocker for blocker in manifest["readiness"]["blockers"]
+            if blocker not in _CAPABILITY_VERIFICATION_BLOCKERS
+        ]
+
+    errors = validate_manifest(manifest)
+    if errors:
+        raise ValueError("Capability verification update is invalid: " + "; ".join(errors))
+    if args.apply:
+        message = _save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run)
+    else:
+        message = "Preview only; pass --apply to record these verification results."
+    _emit({"updated": updated, "manifest_write": message}, args.format)
     return 0
 
 
@@ -639,7 +752,7 @@ def _cmd_codex_agents(args: argparse.Namespace) -> int:
     return 0
 
 
-COMMANDS = {"init": _cmd_init, "roles": _cmd_roles, "classify": _cmd_classify, "inspect-skill": _cmd_inspect_skill, "discover": _cmd_discover, "match": _cmd_match, "optimize": _cmd_optimize, "validate": _cmd_validate, "migrate": _cmd_migrate, "resolve-dependencies": _cmd_resolve_dependencies, "validate-result": _cmd_validate_result, "record-result": _cmd_record_result, "render": _cmd_render, "diff": _cmd_diff, "estimate": _cmd_estimate, "codex-agents": _cmd_codex_agents}
+COMMANDS = {"init": _cmd_init, "roles": _cmd_roles, "classify": _cmd_classify, "inspect-skill": _cmd_inspect_skill, "discover": _cmd_discover, "match": _cmd_match, "optimize": _cmd_optimize, "validate": _cmd_validate, "migrate": _cmd_migrate, "resolve-dependencies": _cmd_resolve_dependencies, "record-verification": _cmd_record_verification, "validate-result": _cmd_validate_result, "record-result": _cmd_record_result, "render": _cmd_render, "diff": _cmd_diff, "estimate": _cmd_estimate, "codex-agents": _cmd_codex_agents}
 
 
 def main(argv: list[str] | None = None) -> int:

@@ -55,12 +55,12 @@ Before marking a kickoff ready, check:
 3. Data, API, authentication, and security/privacy decisions have owners and evidence status.
 4. Must-have features have acceptance criteria and dependencies.
 5. The team fits the hard limit, has minimal overlap, and has valid contracts and handoffs.
-6. Required capabilities are available or have an owner and concrete next action in `readiness.capability_plans`; tool requirements have direct tool evidence, and skill metadata alone is not proof of a usable executable or integration.
+6. Required capabilities have a `verified` result recorded for this project. Tool requirements need direct tool evidence, and skill metadata alone is not proof of a usable executable or integration. Record an owner and concrete next action for each unresolved capability in `readiness.capability_plans`; a plan does not satisfy verification.
 7. Required decisions are confirmed or verified. Optional open decisions remain visible with an owner and are marked `required: false`.
 8. Risks, assumptions, budget, monetization disposition, and milestones are visible; high-impact risks and open assumptions have owners and next actions. State explicitly when a budget limit or monetization plan does not apply.
 9. Manifest validation passes and generated documents match the manifest.
 
-The validator reports derived open gates in addition to recorded blockers and rejects `ready` whenever a required gate remains open. Keep `readiness.blockers` aligned with those findings. An open required gate means the readiness state is `needs_input` or `blocked`; do not call it implementation-ready. A missing specialist capability can be planned work rather than a blocker only when its role, capability, owner, and concrete next action are recorded in `readiness.capability_plans`. Unresolved optional decisions remain visible and owned without blocking readiness.
+The validator reports derived open gates in addition to recorded blockers and rejects `ready` whenever a required gate remains open. Keep `readiness.blockers` aligned with those findings. An open required gate means the readiness state is `needs_input` or `blocked`; do not call it implementation-ready. Capability plans assign remediation ownership but do not establish that a required capability is accessible or fit for the work. Unresolved optional decisions remain visible and owned without blocking readiness.
 
 ## Change management
 

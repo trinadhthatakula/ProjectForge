@@ -6,6 +6,7 @@ from typing import Any
 
 from .common import read_json, skill_root
 from .migrations import SUPPORTED_MANIFEST_VERSIONS
+from .verification import derive_verification_status, verification_errors
 
 
 def _schema_errors(manifest: dict[str, Any], schema_path: Path) -> list[str]:
@@ -140,6 +141,7 @@ def _readiness_gate_errors(manifest: dict[str, Any]) -> list[str]:
             errors.append(f"readiness.status cannot be 'ready' while open assumption {assumption['id']!r} lacks an owner or validation action")
 
     capability_rows = manifest["capability_report"]["role_matches"]
+    uses_verification = manifest.get("schema_version") == "1.2.0"
     team_role_ids = {item["role_id"] for item in [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]}
     reported_role_ids = {item["role_id"] for item in capability_rows}
     if not capability_rows:
@@ -149,8 +151,17 @@ def _readiness_gate_errors(manifest: dict[str, Any]) -> list[str]:
 
     plans = manifest["readiness"].get("capability_plans", [])
     for role in capability_rows:
+        if role["role_id"] not in team_role_ids:
+            continue
         for requirement in role["requirements"]:
-            if requirement["kind"] != "required" or requirement["status"] == "available":
+            verification = requirement.get("verification", {})
+            capability_status = verification.get("status", "unverified") if uses_verification else requirement["status"]
+            accepted_status = "verified" if uses_verification else "available"
+            if requirement["kind"] != "required" or capability_status == accepted_status:
+                continue
+            discovery_note = f" (discovery: {requirement['status']})" if uses_verification else ""
+            if uses_verification:
+                errors.append(f"readiness.status cannot be 'ready' while required capability {role['role_id']!r}: {requirement['capability']!r} is {capability_status}{discovery_note}")
                 continue
             planned = any(
                 plan["role_id"] == role["role_id"] and plan["capability"].casefold() == requirement["capability"].casefold()
@@ -158,7 +169,7 @@ def _readiness_gate_errors(manifest: dict[str, Any]) -> list[str]:
                 for plan in plans
             )
             if not planned:
-                errors.append(f"readiness.status cannot be 'ready' while required capability {role['role_id']!r}: {requirement['capability']!r} is {requirement['status']} without an owner and next-action plan")
+                errors.append(f"readiness.status cannot be 'ready' while required capability {role['role_id']!r}: {requirement['capability']!r} is {capability_status} without an owner and next-action plan")
     return errors
 
 
@@ -173,7 +184,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     version = manifest.get("schema_version") if isinstance(manifest, dict) else None
     if version not in SUPPORTED_MANIFEST_VERSIONS:
         return [f"Unsupported manifest schema_version {version!r}; supported versions: {', '.join(sorted(SUPPORTED_MANIFEST_VERSIONS))}. Use 'migrate' for a supported older manifest."]
-    schema_name = "project-manifest-1.0.0.schema.json" if version == "1.0.0" else "project-manifest.schema.json"
+    schema_name = "project-manifest.schema.json" if version == "1.2.0" else f"project-manifest-{version}.schema.json"
     errors = _schema_errors(manifest, skill_root() / "schemas" / schema_name)
     if errors:
         return errors
@@ -313,7 +324,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     for field in ("deliverables", "risks", "assumptions", "decisions"):
         errors.extend(_check_unique_ids(manifest[field], field))
     # The manifest schema embeds the matching assignment version. Apply the standalone current contract only to current manifests.
-    if version == "1.1.0":
+    if version in {"1.1.0", "1.2.0"}:
         try:
             from jsonschema import Draft202012Validator
         except ImportError as exc:
@@ -324,6 +335,22 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
         for assignment in assignments:
             for error in assignment_validator.iter_errors(assignment):
                 errors.append(f"assignment {assignment['id']}.{'.'.join(str(x) for x in error.absolute_path)}: {error.message}")
+    if version == "1.2.0":
+        for role in manifest["capability_report"]["role_matches"]:
+            for requirement in role["requirements"]:
+                verification = requirement["verification"]
+                errors.extend(
+                    f"capability verification {role['role_id']}.{requirement['capability']}: {error}"
+                    for error in verification_errors(verification, require_recorded=False)
+                )
+                if verification["status"] != derive_verification_status(verification["checks"]):
+                    errors.append(f"capability verification {role['role_id']}.{requirement['capability']}: status does not match the recorded checks")
+                if (verification["recorded_at"] is None) != (verification["recorded_by"] is None):
+                    errors.append(f"capability verification {role['role_id']}.{requirement['capability']}: recorded_at and recorded_by must both be present or both be null")
+                if verification["status"] != "unverified" and verification["recorded_at"] is None:
+                    errors.append(f"capability verification {role['role_id']}.{requirement['capability']}: a recorded verification needs a timestamp and reviewer")
+                if verification["discovery_generated_at"] != manifest["capability_report"]["generated_at"]:
+                    errors.append(f"capability verification {role['role_id']}.{requirement['capability']}: discovery snapshot changed; match and verify again")
     if manifest["readiness"]["status"] == "ready" and manifest["readiness"]["blockers"]:
         errors.append("readiness.status cannot be 'ready' while blockers remain")
     if manifest["readiness"]["status"] == "ready":

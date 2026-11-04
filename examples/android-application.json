@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.2.0",
   "project": {
     "id": "pocket-garden",
     "name": "Pocket Garden",
@@ -187,7 +187,35 @@
             "status": "unverified",
             "evidence": [
               "Example fixture contains no runtime inventory."
-            ]
+            ],
+            "verification": {
+              "status": "unverified",
+              "recorded_at": null,
+              "recorded_by": null,
+              "checks": {
+                "accessibility": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "instructions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "operation": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "permissions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "expected_output": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                }
+              },
+              "discovery_generated_at": "2026-11-04T14:07:00Z"
+            }
           },
           {
             "capability": "risk and dependency management",
@@ -195,7 +223,35 @@
             "status": "unverified",
             "evidence": [
               "Example fixture contains no runtime inventory."
-            ]
+            ],
+            "verification": {
+              "status": "unverified",
+              "recorded_at": null,
+              "recorded_by": null,
+              "checks": {
+                "accessibility": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "instructions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "operation": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "permissions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "expected_output": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                }
+              },
+              "discovery_generated_at": "2026-11-04T14:07:00Z"
+            }
           }
         ]
       },
@@ -208,7 +264,35 @@
             "status": "unverified",
             "evidence": [
               "Example fixture contains no runtime inventory."
-            ]
+            ],
+            "verification": {
+              "status": "unverified",
+              "recorded_at": null,
+              "recorded_by": null,
+              "checks": {
+                "accessibility": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "instructions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "operation": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "permissions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "expected_output": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                }
+              },
+              "discovery_generated_at": "2026-11-04T14:07:00Z"
+            }
           },
           {
             "capability": "Kotlin architecture",
@@ -216,7 +300,35 @@
             "status": "unverified",
             "evidence": [
               "Example fixture contains no runtime inventory."
-            ]
+            ],
+            "verification": {
+              "status": "unverified",
+              "recorded_at": null,
+              "recorded_by": null,
+              "checks": {
+                "accessibility": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "instructions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "operation": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "permissions": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                },
+                "expected_output": {
+                  "status": "unconfirmed",
+                  "evidence": []
+                }
+              },
+              "discovery_generated_at": "2026-11-04T14:07:00Z"
+            }
           }
         ]
       }
@@ -270,7 +382,22 @@
         "project planning",
         "architecture",
         "decision records"
-      ]
+      ],
+      "prerequisites": [
+        "Receives findings from all specialists",
+        "Architecture and product choices precede implementation assignments"
+      ],
+      "result_contract": {
+        "protocol_version": "1.0.0",
+        "expected_output_format": "provider-neutral JSON result with explicitly authorized artifacts",
+        "allowed_paths": [],
+        "protected_paths": [],
+        "required_checks": [],
+        "completion_criteria": [
+          "All work has an owner and handoff",
+          "manifest and generated docs agree"
+        ]
+      }
     },
     "specialists": [
       {
@@ -316,7 +443,22 @@
           "gradle",
           "android cli",
           "testing"
-        ]
+        ],
+        "prerequisites": [
+          "product requirements",
+          "backend API contract"
+        ],
+        "result_contract": {
+          "protocol_version": "1.0.0",
+          "expected_output_format": "provider-neutral JSON result with explicitly authorized artifacts",
+          "allowed_paths": [],
+          "protected_paths": [],
+          "required_checks": [],
+          "completion_criteria": [
+            "Plan matches supported project SDKs",
+            "platform risks have verification steps"
+          ]
+        }
       }
     ],
     "rationale": [
@@ -454,5 +596,9 @@
     "checked_at": "2026-11-04T14:00:47Z"
   },
   "change_log": [],
-  "extensions": {}
+  "extensions": {},
+  "execution": {
+    "protocol_version": "1.0.0",
+    "results": []
+  }
 }

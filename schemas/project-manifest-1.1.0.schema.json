@@ -1,0 +1,1748 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectforge.local/schemas/project-manifest-1.1.0.schema.json",
+  "title": "ProjectForge project manifest 1.1.0",
+  "description": "Canonical, versioned source for kickoff plans and generated documents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project",
+    "discovery",
+    "facts",
+    "technology",
+    "features",
+    "architecture",
+    "data_api",
+    "constraints",
+    "capability_report",
+    "team",
+    "execution",
+    "dependencies",
+    "deliverables",
+    "milestones",
+    "risks",
+    "assumptions",
+    "decisions",
+    "cost_estimate",
+    "output_preferences",
+    "readiness",
+    "change_log",
+    "extensions"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.1.0"
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "problem_statement",
+        "target_audience",
+        "goals",
+        "classification",
+        "platforms",
+        "scope",
+        "existing_repository"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[a-z0-9][a-z0-9-]{0,62}$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summary": {
+          "type": "string"
+        },
+        "problem_statement": {
+          "type": "string"
+        },
+        "target_audience": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "goals": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "classification": {
+          "type": "string",
+          "enum": [
+            "mobile_app",
+            "web_app",
+            "saas",
+            "backend_service",
+            "automation",
+            "ai_product",
+            "library",
+            "cross_platform",
+            "other",
+            "pending"
+          ]
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "identifiers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scope": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "included",
+            "excluded"
+          ],
+          "properties": {
+            "included": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "excluded": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "existing_repository": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "inspected",
+            "observations"
+          ],
+          "properties": {
+            "path": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "inspected": {
+              "type": "boolean"
+            },
+            "observations": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "discovery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "started_at",
+        "updated_at"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "quick",
+            "standard",
+            "comprehensive",
+            "custom",
+            "agent_decided"
+          ]
+        },
+        "started_at": {
+          "type": "string"
+        },
+        "updated_at": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "topic",
+          "value",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "topic": {
+            "type": "string",
+            "minLength": 1
+          },
+          "value": {},
+          "status": {
+            "$ref": "#/$defs/evidenceStatus"
+          },
+          "source": {
+            "type": "string"
+          },
+          "rationale": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "technology": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "preferences",
+        "selected",
+        "alternatives"
+      ],
+      "properties": {
+        "preferences": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "selected": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "alternatives": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "compatibility_evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      }
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "priority",
+          "status",
+          "acceptance_criteria",
+          "depends_on"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": {
+            "type": "string"
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "must",
+              "should",
+              "could",
+              "later",
+              "pending"
+            ]
+          },
+          "status": {
+            "$ref": "#/$defs/evidenceStatus"
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "architecture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "components",
+        "flows"
+      ],
+      "properties": {
+        "summary": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "name",
+              "description"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "flows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "from",
+              "to",
+              "label"
+            ],
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "data_api": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "datastores",
+        "apis",
+        "authentication",
+        "decisions"
+      ],
+      "properties": {
+        "datastores": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "apis": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "authentication": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/decision"
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "security_privacy",
+        "offline",
+        "monetization",
+        "performance",
+        "accessibility",
+        "localization",
+        "deployment",
+        "budget"
+      ],
+      "properties": {
+        "security_privacy": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "offline": {
+          "type": "string"
+        },
+        "monetization": {
+          "type": "string"
+        },
+        "performance": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "accessibility": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "localization": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "deployment": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "budget": {
+          "type": "string"
+        }
+      }
+    },
+    "capability_report": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "generated_at",
+        "runtime",
+        "skills",
+        "agents",
+        "tools",
+        "role_matches",
+        "gaps"
+      ],
+      "properties": {
+        "generated_at": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "detected",
+            "version",
+            "session_availability",
+            "session_inventory_complete"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            },
+            "detected": {
+              "type": "boolean"
+            },
+            "version": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "session_availability": {
+              "type": "string",
+              "enum": [
+                "available",
+                "unavailable",
+                "unverified"
+              ]
+            },
+            "session_inventory_complete": {
+              "type": "boolean"
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "description",
+              "source",
+              "status"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "partial",
+                  "missing",
+                  "unverified"
+                ]
+              }
+            }
+          }
+        },
+        "agents": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "description",
+              "source",
+              "status"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "description": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "partial",
+                  "missing",
+                  "unverified"
+                ]
+              }
+            }
+          }
+        },
+        "tools": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "source",
+              "status"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "available",
+                  "partial",
+                  "missing",
+                  "unverified"
+                ]
+              }
+            }
+          }
+        },
+        "role_matches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role_id",
+              "requirements"
+            ],
+            "properties": {
+              "role_id": {
+                "type": "string"
+              },
+              "requirements": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "capability",
+                    "kind",
+                    "status",
+                    "evidence"
+                  ],
+                  "properties": {
+                    "capability": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "required",
+                        "optional"
+                      ]
+                    },
+                    "requirement_type": {
+                      "description": "Whether this is a general capability or a tool requirement that needs direct tool evidence.",
+                      "type": "string",
+                      "enum": [
+                        "capability",
+                        "tool"
+                      ]
+                    },
+                    "source": {
+                      "description": "Whether the requirement came from the role profile or this project assignment.",
+                      "type": "string",
+                      "enum": [
+                        "role_profile",
+                        "assignment"
+                      ]
+                    },
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "available",
+                        "partial",
+                        "missing",
+                        "unverified"
+                      ]
+                    },
+                    "evidence": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "gaps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "team": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approval_status",
+        "selection_mode",
+        "supervisor",
+        "specialists",
+        "rationale",
+        "optimization"
+      ],
+      "properties": {
+        "approval_status": {
+          "type": "string",
+          "enum": [
+            "proposed",
+            "accepted",
+            "needs_user_approval"
+          ]
+        },
+        "supervisor": {
+          "$ref": "#/$defs/assignment"
+        },
+        "specialists": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/assignment"
+          },
+          "maxItems": 6
+        },
+        "rationale": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "optimization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "coordination_score",
+            "estimated_input_tokens",
+            "estimated_output_tokens",
+            "handoffs",
+            "metrics"
+          ],
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": [
+                "quick",
+                "standard",
+                "comprehensive",
+                "custom",
+                "agent_decided"
+              ]
+            },
+            "coordination_score": {
+              "type": "number",
+              "minimum": 0
+            },
+            "estimated_input_tokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "estimated_output_tokens": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "handoffs": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "metrics": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "role_relevance",
+                "role_overlap",
+                "workstream_independence",
+                "coordination_overhead",
+                "context_requirements",
+                "research_complexity",
+                "integration_complexity",
+                "handoffs",
+                "expected_review_effort_points",
+                "review_effort_basis"
+              ],
+              "properties": {
+                "role_relevance": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "role_id",
+                      "score",
+                      "signals"
+                    ],
+                    "properties": {
+                      "role_id": {
+                        "type": "string"
+                      },
+                      "score": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 10
+                      },
+                      "signals": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "role_overlap": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "pair_count",
+                    "pairs"
+                  ],
+                  "properties": {
+                    "pair_count": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "pairs": {
+                      "type": "array",
+                      "items": {
+                        "type": "array",
+                        "minItems": 2,
+                        "maxItems": 2,
+                        "items": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                },
+                "workstream_independence": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "score",
+                    "basis"
+                  ],
+                  "properties": {
+                    "score": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 1
+                    },
+                    "basis": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "coordination_overhead": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "score",
+                    "handoffs",
+                    "basis"
+                  ],
+                  "properties": {
+                    "score": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "handoffs": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "basis": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "context_requirements": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "estimated_input_tokens",
+                    "project_complexity_units",
+                    "per_role",
+                    "basis"
+                  ],
+                  "properties": {
+                    "estimated_input_tokens": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "project_complexity_units": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "per_role": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "role_id",
+                          "required_capability_count",
+                          "deliverable_count",
+                          "research_method_count",
+                          "estimated_input_tokens"
+                        ],
+                        "properties": {
+                          "role_id": {
+                            "type": "string"
+                          },
+                          "required_capability_count": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "deliverable_count": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "research_method_count": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "estimated_input_tokens": {
+                            "type": "integer",
+                            "minimum": 0
+                          }
+                        }
+                      }
+                    },
+                    "basis": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "research_complexity": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "score",
+                    "research_method_count",
+                    "basis"
+                  ],
+                  "properties": {
+                    "score": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "research_method_count": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "basis": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "integration_complexity": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "score",
+                    "basis"
+                  ],
+                  "properties": {
+                    "score": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 10
+                    },
+                    "basis": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "handoffs": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "expected_review_effort_points": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "review_effort_basis": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "selection_mode": {
+          "type": "string",
+          "enum": [
+            "dynamic",
+            "manual",
+            "hybrid"
+          ]
+        }
+      }
+    },
+    "dependencies": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "from",
+          "to",
+          "kind"
+        ],
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "blocks",
+              "informs",
+              "reviews"
+            ]
+          },
+          "prerequisite": {
+            "type": "string",
+            "minLength": 1
+          },
+          "resolution_source": {
+            "type": "string",
+            "enum": [
+              "role_prerequisite",
+              "project_planning"
+            ]
+          }
+        }
+      }
+    },
+    "deliverables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "owner",
+          "acceptance_criteria",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "acceptance_criteria": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "in_progress",
+              "accepted",
+              "blocked"
+            ]
+          }
+        }
+      }
+    },
+    "milestones": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "target",
+          "depends_on"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "description",
+          "likelihood",
+          "impact",
+          "mitigation",
+          "owner"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "likelihood": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "unknown"
+            ]
+          },
+          "impact": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              "unknown"
+            ]
+          },
+          "mitigation": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "statement",
+          "validation_action",
+          "owner",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "statement": {
+            "type": "string"
+          },
+          "validation_action": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "validated",
+              "rejected"
+            ]
+          }
+        }
+      }
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/decision"
+      }
+    },
+    "cost_estimate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "total_amount",
+        "confidence",
+        "items",
+        "token_estimate",
+        "assumptions"
+      ],
+      "properties": {
+        "currency": {
+          "type": "string"
+        },
+        "total_amount": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "confidence": {
+          "type": "string",
+          "enum": [
+            "low",
+            "medium",
+            "high",
+            "unknown"
+          ]
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "label",
+              "amount",
+              "basis"
+            ],
+            "properties": {
+              "label": {
+                "type": "string"
+              },
+              "amount": {
+                "type": [
+                  "number",
+                  "null"
+                ],
+                "minimum": 0
+              },
+              "basis": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "token_estimate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "input",
+            "output",
+            "method"
+          ],
+          "properties": {
+            "input": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "output": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "method": {
+              "type": "string"
+            }
+          }
+        },
+        "assumptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "output_preferences": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "formats",
+        "include_architecture_diagram",
+        "include_team_contracts"
+      ],
+      "properties": {
+        "formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "markdown",
+              "html"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "include_architecture_diagram": {
+          "type": "boolean"
+        },
+        "include_team_contracts": {
+          "type": "boolean"
+        }
+      }
+    },
+    "readiness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "blockers",
+        "checked_at"
+      ],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "needs_input",
+            "ready",
+            "blocked"
+          ]
+        },
+        "blockers": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "capability_plans": {
+          "description": "Named owners and next actions for required capabilities that are not currently available.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "role_id",
+              "capability",
+              "owner",
+              "next_action"
+            ],
+            "properties": {
+              "role_id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "capability": {
+                "type": "string",
+                "minLength": 1
+              },
+              "owner": {
+                "type": "string",
+                "minLength": 1
+              },
+              "next_action": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "checked_at": {
+          "type": "string"
+        }
+      }
+    },
+    "change_log": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "date",
+          "request",
+          "affected_areas",
+          "status"
+        ],
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "request": {
+            "type": "string"
+          },
+          "affected_areas": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "accepted",
+              "rejected"
+            ]
+          }
+        }
+      }
+    },
+    "extensions": {
+      "type": "object"
+    },
+    "execution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "protocol_version",
+        "results"
+      ],
+      "properties": {
+        "protocol_version": {
+          "const": "1.0.0"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/executionResult"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "evidenceStatus": {
+      "type": "string",
+      "enum": [
+        "confirmed",
+        "verified",
+        "recommended",
+        "assumption",
+        "pending"
+      ]
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "statement",
+        "status",
+        "source"
+      ],
+      "properties": {
+        "statement": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "source": {
+          "type": "string"
+        }
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "question",
+        "status",
+        "owner",
+        "options",
+        "rationale"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "question": {
+          "type": "string"
+        },
+        "status": {
+          "$ref": "#/$defs/evidenceStatus"
+        },
+        "owner": {
+          "type": "string"
+        },
+        "required": {
+          "description": "Whether this decision must be resolved before implementation readiness; defaults to true when omitted.",
+          "type": "boolean",
+          "default": true
+        },
+        "selected": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rationale": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/evidence"
+          }
+        }
+      }
+    },
+    "assignment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "role_id",
+        "name",
+        "mission",
+        "responsibilities",
+        "exclusions",
+        "inputs",
+        "outputs",
+        "prerequisites",
+        "result_contract",
+        "dependencies",
+        "acceptance_criteria",
+        "handoff_requirements",
+        "required_capabilities",
+        "supporting_skills"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "role_id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "mission": {
+          "type": "string",
+          "minLength": 1
+        },
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "exclusions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "dependencies": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "acceptance_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "handoff_requirements": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "required_capabilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "supporting_skills": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "prerequisites": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "result_contract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "protocol_version",
+            "expected_output_format",
+            "allowed_paths",
+            "protected_paths",
+            "required_checks",
+            "completion_criteria"
+          ],
+          "properties": {
+            "protocol_version": {
+              "const": "1.0.0"
+            },
+            "expected_output_format": {
+              "type": "string",
+              "minLength": 1
+            },
+            "allowed_paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "protected_paths": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "required_checks": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "completion_criteria": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "minItems": 1
+            }
+          }
+        }
+      }
+    },
+    "executionResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "result_id",
+        "assignment_id",
+        "manifest_version",
+        "status",
+        "attempt",
+        "prior_result_id",
+        "result_file",
+        "result_sha256",
+        "review_status",
+        "created_at"
+      ],
+      "properties": {
+        "result_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "assignment_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "manifest_version": {
+          "type": "string",
+          "const": "1.1.0"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "assigned",
+            "in_progress",
+            "completed",
+            "validated",
+            "blocked",
+            "failed",
+            "cancelled"
+          ]
+        },
+        "attempt": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "prior_result_id": {
+          "type": ["string", "null"]
+        },
+        "result_file": {
+          "type": "string",
+          "minLength": 1
+        },
+        "result_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "review_status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "accepted",
+            "rejected",
+            "rework_required"
+          ]
+        },
+        "created_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewed_at": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reviewer": {
+          "type": "string"
+        },
+        "review_notes": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

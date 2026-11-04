@@ -1,6 +1,6 @@
 # ProjectForge
 
-ProjectForge is a provider-neutral Agent Skill for turning an early software, automation, AI, or cross-platform idea into a researched kickoff specification. It works in any agent runtime that can load Agent Skills instructions; its shared workflow and assignment/result schemas do not depend on a model provider. It guides adaptive discovery, recommends a right-sized specialist team, reports runtime capability gaps, validates a versioned manifest, and generates Markdown plus standalone offline HTML.
+ProjectForge is a provider-neutral Agent Skill for turning an early software, automation, AI, or cross-platform idea into a researched kickoff specification. It works in any agent runtime that can load Agent Skills instructions; its shared workflow and assignment/result schemas do not depend on a model provider. It guides adaptive discovery, recommends a right-sized specialist team, verifies capability fit with evidence, reports gaps, validates a versioned manifest, and generates Markdown plus standalone offline HTML.
 
 ## Install with `npx`
 
@@ -47,6 +47,17 @@ python3 scripts/projectforge.py optimize /path/to/projectforge.json
 
 Team selection defaults to dynamic. Use `optimize --selection-mode manual --role ROLE_ID` to select roles directly, or `--selection-mode hybrid --role ROLE_ID` to seed a team that ProjectForge can extend with relevant roles. Pass `--inventory-complete` to `discover` or `match` only when the active-session capability inventory is complete. Otherwise, unknown capabilities remain unverified where appropriate. Optimization scores and token counts are planning heuristics, not measured usage.
 
+Capability matching is discovery only. Verify each selected requirement's runtime access, instructions, operation fit, permissions, and expected output using evidence. Create a verification file that follows [`schemas/capability-verification.schema.json`](schemas/capability-verification.schema.json), then record it in the manifest:
+
+```sh
+python3 scripts/projectforge.py optimize /path/to/projectforge.json --apply
+python3 scripts/projectforge.py match /path/to/projectforge.json --apply
+python3 scripts/projectforge.py record-verification \
+  /path/to/projectforge.json /path/to/capability-verifications.json --apply
+```
+
+Without `--apply`, the command previews the derived status. Verification outcomes are `verified`, `partially_verified`, `unverified`, or `unavailable`; ProjectForge derives them from the recorded checks. Required capabilities must be verified for a manifest to pass the `ready` gate. Running `match` again refreshes discovery and clears old verification, so verify against the refreshed inventory.
+
 Validate and render both deliverables. Existing output files are protected unless `--force` is supplied. Use `--dry-run` to preview writes.
 
 ```sh
@@ -55,27 +66,27 @@ python3 scripts/projectforge.py render /path/to/projectforge.json \
   --output-dir /path/to/kickoff --format both --dry-run
 ```
 
-New manifests use schema version `1.1.0`. Version `1.0.0` remains supported. Migrate an older manifest to a new file; ProjectForge validates both the source and migrated result and does not rewrite the source:
+New manifests use schema version `1.2.0`. Versions `1.0.0` and `1.1.0` remain supported. Migrate an older manifest to a new file; ProjectForge validates both the source and migrated result and does not rewrite the source. Migration marks earlier capability matches unverified and downgrades a previously ready manifest until required capabilities are checked:
 
 ```sh
 python3 scripts/projectforge.py migrate /path/to/projectforge.json \
-  --output /path/to/projectforge-1.1.json
+  --output /path/to/projectforge-1.2.json
 ```
 
 Resolve selected-role prerequisites only after the supervisor confirms the provider assignment and relationship. The JSON input is an array following `schemas/dependency-resolution.schema.json`; `blocks` and `reviews` edges sequence work, while `informs` edges preserve parallel scheduling.
 
 ```sh
 python3 scripts/projectforge.py resolve-dependencies \
-  /path/to/projectforge-1.1.json /path/to/resolutions.json --apply
+  /path/to/projectforge-1.2.json /path/to/resolutions.json --apply
 ```
 
 Provider results use `schemas/agent-result.schema.json`, independent of model provider. Before dispatch, set each assignment's allowed paths, protected paths, and required checks. A path ending in `/` covers that directory and its descendants; other paths match exactly. Validate results before review; accepted results must pass the required checks and point to existing project-local outputs. Keep every retry in a separate result file and link it to the previous rejected or rework-required attempt.
 
 ```sh
 python3 scripts/projectforge.py validate-result \
-  /path/to/projectforge-1.1.json /path/to/.projectforge/results/result-001.json
+  /path/to/projectforge-1.2.json /path/to/.projectforge/results/result-001.json
 python3 scripts/projectforge.py record-result \
-  /path/to/projectforge-1.1.json /path/to/.projectforge/results/result-001.json \
+  /path/to/projectforge-1.2.json /path/to/.projectforge/results/result-001.json \
   --review accepted --reviewer supervisor --apply
 ```
 
@@ -96,7 +107,7 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
 
 - `SKILL.md` contains the provider-neutral shared workflow and key constraints. `agents/openai.yaml` is optional display metadata for hosts that use it; it does not change the skill's supported runtimes.
 - `references/roles.json` contains the specialist catalogue and links each built-in role to its focused guide under `references/role-guides/`; other references explain discovery, architecture, and runtime limits.
-- `schemas/` defines versioned project manifests, role profiles, assignment contracts, dependency resolutions, and provider-neutral agent results.
+- `schemas/` defines versioned project manifests, capability verification, role profiles, assignment contracts, dependency resolutions, and provider-neutral agent results.
 - `scripts/` implements deterministic operations. It reads skill metadata and agent configuration but never executes discovered scripts.
 - `templates/` holds document framing; renderers fill both formats from the same manifest.
 - `examples/` are complete manifests. `tests/` exercise CLI behavior and safety invariants.

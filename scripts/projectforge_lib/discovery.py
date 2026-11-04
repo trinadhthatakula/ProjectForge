@@ -10,6 +10,7 @@ from typing import Any
 
 from .common import now_utc
 from .security import redact_text
+from .verification import empty_verification
 
 
 _FRONTMATTER = re.compile(r"\A---\s*\n(.*?)\n---", re.DOTALL)
@@ -200,6 +201,7 @@ def match_capabilities(
 ) -> dict[str, Any]:
     role_by_id = {role["id"]: role for role in roles}
     assigned = [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]
+    selected_role_ids = {assignment["role_id"] for assignment in assigned}
     if len(assigned) == 1:
         # When no team is assigned yet, report likely role capability matches after optimization.
         from .optimization import optimize_team
@@ -261,18 +263,22 @@ def match_capabilities(
                 status = "unverified" if inventory["runtime"]["session_availability"] == "unverified" else "missing"
             if not evidence:
                 evidence.append("No matching local metadata; active session capability inventory is not confirmed")
-            capabilities.append({"role_id": profile["id"], "requirement": requirement, "kind": kind, "requirement_type": requirement_type, "source": source, "status": status, "evidence": evidence})
+            capabilities.append({"role_id": profile["id"], "requirement": requirement, "kind": kind, "requirement_type": requirement_type, "source": source, "status": status, "evidence": evidence, "verification": empty_verification(inventory["generated_at"])})
 
     role_groups: dict[str, list[dict[str, Any]]] = {
         assignment["role_id"]: [] for assignment in assigned if assignment["role_id"] in role_by_id
     }
     for item in capabilities:
-        role_groups.setdefault(item["role_id"], []).append({"capability": item["requirement"], "kind": item["kind"], "requirement_type": item["requirement_type"], "source": item["source"], "status": item["status"], "evidence": item["evidence"]})
+        role_groups.setdefault(item["role_id"], []).append({"capability": item["requirement"], "kind": item["kind"], "requirement_type": item["requirement_type"], "source": item["source"], "status": item["status"], "evidence": item["evidence"], "verification": item["verification"]})
     gaps = []
+    manifest_gaps = []
     for item in capabilities:
-        if item["kind"] == "required" and item["status"] != "available":
+        if item["kind"] == "required":
             source = "assignment-specific " if item["source"] == "assignment" else ""
-            gaps.append(f"{item['role_id']}: {source}{item['requirement']} is {item['status']}")
+            gap = f"{item['role_id']}: {source}{item['requirement']} is discovered as {item['status']} and remains {item['verification']['status']}"
+            gaps.append(gap)
+            if item["role_id"] in selected_role_ids:
+                manifest_gaps.append(gap)
     manifest["capability_report"] = {
         "generated_at": inventory["generated_at"],
         "runtime": inventory["runtime"],
@@ -280,7 +286,7 @@ def match_capabilities(
         "agents": inventory["agents"],
         "tools": inventory["tools"],
         "role_matches": [{"role_id": role_id, "requirements": matches} for role_id, matches in sorted(role_groups.items())],
-        "gaps": gaps,
+        "gaps": manifest_gaps,
     }
     return {"runtime": inventory["runtime"], "role_matches": capabilities, "gaps": gaps, "skills": inventory["skills"], "agents": inventory["agents"], "tools": inventory["tools"], "searched_skill_directories": inventory["searched_skill_directories"], "notes": inventory["notes"]}
 

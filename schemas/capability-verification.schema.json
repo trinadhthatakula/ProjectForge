@@ -1,0 +1,81 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectforge.local/schemas/capability-verification.schema.json",
+  "title": "ProjectForge capability verification input 1.0.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["verification_version", "verifications"],
+  "properties": {
+    "verification_version": {"const": "1.0.0"},
+    "verifications": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/verification"}
+    }
+  },
+  "$defs": {
+    "check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "evidence"],
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["confirmed", "partial", "unconfirmed", "unavailable", "unsupported", "not_applicable"]
+        },
+        "evidence": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["accessibility", "instructions", "operation", "permissions", "expected_output"],
+      "properties": {
+        "accessibility": {
+          "allOf": [
+            {"$ref": "#/$defs/check"},
+            {"properties": {"status": {"enum": ["confirmed", "unconfirmed", "unavailable"]}}}
+          ]
+        },
+        "instructions": {
+          "allOf": [
+            {"$ref": "#/$defs/check"},
+            {"properties": {"status": {"enum": ["confirmed", "partial", "unconfirmed", "not_applicable"]}}}
+          ]
+        },
+        "operation": {
+          "allOf": [
+            {"$ref": "#/$defs/check"},
+            {"properties": {"status": {"enum": ["confirmed", "partial", "unconfirmed", "unsupported"]}}}
+          ]
+        },
+        "permissions": {
+          "allOf": [
+            {"$ref": "#/$defs/check"},
+            {"properties": {"status": {"enum": ["confirmed", "partial", "unconfirmed", "unavailable", "not_applicable"]}}}
+          ]
+        },
+        "expected_output": {
+          "allOf": [
+            {"$ref": "#/$defs/check"},
+            {"properties": {"status": {"enum": ["confirmed", "partial", "unconfirmed"]}}}
+          ]
+        }
+      }
+    },
+    "verification": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role_id", "capability", "kind", "requirement_type", "source", "recorded_by", "checks"],
+      "properties": {
+        "role_id": {"type": "string", "minLength": 1},
+        "capability": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "enum": ["required", "optional"]},
+        "requirement_type": {"type": "string", "enum": ["capability", "tool"]},
+        "source": {"type": "string", "enum": ["role_profile", "assignment"]},
+        "recorded_by": {"type": "string", "minLength": 1},
+        "checks": {"$ref": "#/$defs/checks"}
+      }
+    }
+  }
+}

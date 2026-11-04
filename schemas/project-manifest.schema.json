@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://projectforge.local/schemas/project-manifest-1.1.0.schema.json",
-  "title": "ProjectForge project manifest 1.1.0",
+  "$id": "https://projectforge.local/schemas/project-manifest-1.2.0.schema.json",
+  "title": "ProjectForge project manifest 1.2.0",
   "description": "Canonical, versioned source for kickoff plans and generated documents.",
   "type": "object",
   "additionalProperties": false,
@@ -32,7 +32,7 @@
   ],
   "properties": {
     "schema_version": {
-      "const": "1.1.0"
+      "const": "1.2.0"
     },
     "project": {
       "type": "object",
@@ -633,7 +633,8 @@
                     "capability",
                     "kind",
                     "status",
-                    "evidence"
+                    "evidence",
+                    "verification"
                   ],
                   "properties": {
                     "capability": {
@@ -675,6 +676,183 @@
                       "type": "array",
                       "items": {
                         "type": "string"
+                      }
+                    },
+                    "verification": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "status",
+                        "discovery_generated_at",
+                        "recorded_at",
+                        "recorded_by",
+                        "checks"
+                      ],
+                      "properties": {
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "verified",
+                            "partially_verified",
+                            "unverified",
+                            "unavailable"
+                          ]
+                        },
+                        "recorded_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "recorded_by": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "checks": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "accessibility",
+                            "instructions",
+                            "operation",
+                            "permissions",
+                            "expected_output"
+                          ],
+                          "properties": {
+                            "accessibility": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "status",
+                                "evidence"
+                              ],
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed",
+                                    "unconfirmed",
+                                    "unavailable"
+                                  ]
+                                },
+                                "evidence": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "instructions": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "status",
+                                "evidence"
+                              ],
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed",
+                                    "partial",
+                                    "unconfirmed",
+                                    "not_applicable"
+                                  ]
+                                },
+                                "evidence": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "operation": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "status",
+                                "evidence"
+                              ],
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed",
+                                    "partial",
+                                    "unconfirmed",
+                                    "unsupported"
+                                  ]
+                                },
+                                "evidence": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "permissions": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "status",
+                                "evidence"
+                              ],
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed",
+                                    "partial",
+                                    "unconfirmed",
+                                    "unavailable",
+                                    "not_applicable"
+                                  ]
+                                },
+                                "evidence": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            },
+                            "expected_output": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "status",
+                                "evidence"
+                              ],
+                              "properties": {
+                                "status": {
+                                  "type": "string",
+                                  "enum": [
+                                    "confirmed",
+                                    "partial",
+                                    "unconfirmed"
+                                  ]
+                                },
+                                "evidence": {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "discovery_generated_at": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
                       }
                     }
                   }
@@ -1689,7 +1867,10 @@
         },
         "manifest_version": {
           "type": "string",
-          "const": "1.1.0"
+          "enum": [
+            "1.1.0",
+            "1.2.0"
+          ]
         },
         "status": {
           "type": "string",
@@ -1709,7 +1890,10 @@
           "minimum": 1
         },
         "prior_result_id": {
-          "type": ["string", "null"]
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "result_file": {
           "type": "string",

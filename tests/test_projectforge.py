@@ -430,7 +430,7 @@ class ProjectForgeTests(unittest.TestCase):
             self.assertEqual(code, 0, error)
             migrated = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(validate_manifest(migrated), [])
-            self.assertEqual(migrated["schema_version"], "1.1.0")
+            self.assertEqual(migrated["schema_version"], "1.2.0")
             self.assertEqual(migrated["execution"], {"protocol_version": "1.0.0", "results": []})
             assignment = migrated["team"]["specialists"][0]
             self.assertIn("reviewed API contract", assignment["prerequisites"])
