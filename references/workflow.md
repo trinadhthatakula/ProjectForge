@@ -66,4 +66,6 @@ The validator reports derived open gates in addition to recorded blockers and re
 
 Keep accepted changes in the next manifest version and retain a short change record with date, request, affected areas, and decision status. Use `projectforge diff OLD NEW` to surface changed project fields, roster, capability needs, dependencies, milestones, risks, and decisions. Before applying a consequential change, explain effects on scope, architecture, cost, staffing, schedule, and prior acceptance criteria. Regenerate both documents from the accepted manifest.
 
+Commands that apply changes to an existing manifest serialize their writes and reject a write if the manifest changed after the command read it. On a conflict, reload the latest file, review the changes, and rerun the intended operation; do not force the stale result over the newer manifest.
+
 Manifest validation rejects unsupported `schema_version` values. For supported older versions, use `projectforge migrate OLD --output NEW`; migration validates the source, applies a registered migration, validates the result, and preserves the original file. Never silently rewrite an old manifest or invent a migration for an unknown version.

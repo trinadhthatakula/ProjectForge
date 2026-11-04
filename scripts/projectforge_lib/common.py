@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import re
 import tempfile
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -23,14 +26,24 @@ def slugify(value: str) -> str:
 
 
 def read_json(path: Path) -> Any:
+    return read_json_with_sha256(path)[0]
+
+
+def read_json_with_sha256(path: Path) -> tuple[Any, str]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        content = path.read_bytes()
     except FileNotFoundError as exc:
         raise ValueError(f"File not found: {path}") from exc
-    except json.JSONDecodeError as exc:
-        raise ValueError(f"Invalid JSON in {path}: line {exc.lineno}, column {exc.colno}: {exc.msg}") from exc
     except OSError as exc:
         raise ValueError(f"Cannot read {path}: {exc}") from exc
+    try:
+        decoded = content.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise ValueError(f"Cannot read {path}: invalid UTF-8: {exc}") from exc
+    try:
+        return json.loads(decoded), hashlib.sha256(content).hexdigest()
+    except json.JSONDecodeError as exc:
+        raise ValueError(f"Invalid JSON in {path}: line {exc.lineno}, column {exc.colno}: {exc.msg}") from exc
 
 
 def write_text(path: Path, content: str, *, force: bool = False, dry_run: bool = False) -> bool:
@@ -54,6 +67,56 @@ def write_text(path: Path, content: str, *, force: bool = False, dry_run: bool =
     finally:
         if temp_name and os.path.exists(temp_name):
             os.unlink(temp_name)
+
+
+@contextmanager
+def _exclusive_file_lock(path: Path) -> Iterator[None]:
+    with path.open("a+b") as handle:
+        if os.name == "nt":
+            import msvcrt
+
+            handle.seek(0, os.SEEK_END)
+            if handle.tell() == 0:
+                handle.write(b"\0")
+                handle.flush()
+            handle.seek(0)
+            msvcrt.locking(handle.fileno(), msvcrt.LK_LOCK, 1)
+            try:
+                yield
+            finally:
+                handle.seek(0)
+                msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
+
+
+def write_text_if_unchanged(path: Path, content: str, *, expected_sha256: str, dry_run: bool = False) -> bool:
+    """Serialize a manifest write and reject a stale read snapshot."""
+    path = path.expanduser()
+    if dry_run:
+        return False
+    resolved = path.resolve()
+    lock_owner = str(os.getuid()) if hasattr(os, "getuid") else os.environ.get("USERNAME", "user")
+    lock_owner = re.sub(r"[^A-Za-z0-9_.-]", "_", lock_owner)
+    lock_directory = Path(tempfile.gettempdir()) / "projectforge-locks" / lock_owner
+    lock_directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+    lock_name = hashlib.sha256(str(resolved).encode("utf-8")).hexdigest() + ".lock"
+    with _exclusive_file_lock(lock_directory / lock_name):
+        try:
+            current_sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
+        except FileNotFoundError as exc:
+            raise ValueError(f"Manifest was removed after it was read: {path}") from exc
+        except OSError as exc:
+            raise ValueError(f"Cannot verify manifest before update: {exc}") from exc
+        if current_sha256 != expected_sha256:
+            raise ValueError(f"Manifest changed since it was read; refusing to overwrite newer changes: {path}")
+        return write_text(path, content, force=True)
 
 
 def catalog() -> dict[str, Any]:

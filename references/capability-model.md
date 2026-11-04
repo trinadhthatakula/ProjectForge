@@ -15,6 +15,8 @@ Each required capability has a status:
 - `missing`: searched locations or active tool inventory show no matching capability.
 - `unverified`: the source could not be inspected or session availability is unknown.
 
+These statuses summarize inventory evidence and matching; they do not claim that a task was executed successfully. An active skill confirms that its instructions are exposed in the session, not that a required SDK, permission, account, or output path works. A tool requirement can only match an active tool inventory entry. Record task-specific checks and their evidence separately in the agent result; do not upgrade a capability based on a name or description alone.
+
 The report includes role requirements, discovered matches, source path or tool name, reason for the match, missing items, and recommendations. Skill names are clues, not proof. Read full instructions only for candidates relevant to selected roles and current work.
 
 ## Skill locations

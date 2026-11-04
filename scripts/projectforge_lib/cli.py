@@ -10,7 +10,7 @@ from typing import Any
 
 from .changes import compare_manifests, diff_markdown
 from .classification import classify_project
-from .common import catalog, new_manifest, now_utc, read_json, skill_root, write_text
+from .common import catalog, new_manifest, now_utc, read_json, read_json_with_sha256, skill_root, write_text, write_text_if_unchanged
 from .discovery import discover_environment, inspect_skill, match_capabilities
 from .handoffs import result_sha256, validate_agent_result, validate_result_location
 from .migrations import CURRENT_MANIFEST_VERSION, migrate_manifest
@@ -200,11 +200,18 @@ def _load_manifest(path: Path) -> dict[str, Any]:
     return manifest
 
 
-def _save_manifest(path: Path, manifest: dict[str, Any], *, dry_run: bool = False) -> str:
+def _load_manifest_snapshot(path: Path) -> tuple[dict[str, Any], str]:
+    manifest, manifest_sha256 = read_json_with_sha256(path)
+    if not isinstance(manifest, dict):
+        raise ValueError(f"Manifest root must be an object: {path}")
+    return manifest, manifest_sha256
+
+
+def _save_manifest(path: Path, manifest: dict[str, Any], *, expected_sha256: str, dry_run: bool = False) -> str:
     content = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
     if dry_run:
         return f"Dry run: would update {path}"
-    write_text(path, content, force=True)
+    write_text_if_unchanged(path, content, expected_sha256=expected_sha256)
     return f"Updated {path}"
 
 
@@ -236,7 +243,7 @@ def _cmd_roles(args: argparse.Namespace) -> int:
 
 
 def _cmd_classify(args: argparse.Namespace) -> int:
-    manifest = _load_manifest(args.manifest)
+    manifest, manifest_sha256 = _load_manifest_snapshot(args.manifest)
     result = classify_project(manifest)
     if args.apply and result["status"] == "recommended":
         manifest["project"]["classification"] = result["classification"]
@@ -245,7 +252,7 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Classified manifest is invalid: " + "; ".join(errors))
-        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+        print(_save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run))
     elif args.apply and result["status"] in {"ambiguous", "insufficient_evidence"}:
         print("Classification remains pending; review the alternatives and decide with the user.")
     _emit(result, "json")
@@ -273,7 +280,7 @@ def _cmd_discover(args: argparse.Namespace) -> int:
 
 
 def _cmd_match(args: argparse.Namespace) -> int:
-    manifest = _load_manifest(args.manifest)
+    manifest, manifest_sha256 = _load_manifest_snapshot(args.manifest)
     profiles = _load_profiles(args.role_file)
     inventory = _discover_args(args)
     report = match_capabilities(manifest, inventory, profiles)
@@ -281,13 +288,13 @@ def _cmd_match(args: argparse.Namespace) -> int:
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Capability report update is invalid: " + "; ".join(errors))
-        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+        print(_save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run))
     _emit(report, args.format)
     return 0
 
 
 def _cmd_optimize(args: argparse.Namespace) -> int:
-    manifest = _load_manifest(args.manifest)
+    manifest, manifest_sha256 = _load_manifest_snapshot(args.manifest)
     if args.apply and manifest.get("schema_version") != CURRENT_MANIFEST_VERSION:
         raise ValueError(f"Applying team changes requires manifest {CURRENT_MANIFEST_VERSION}; run 'migrate' first")
     profiles = _load_profiles(args.role_file)
@@ -308,7 +315,7 @@ def _cmd_optimize(args: argparse.Namespace) -> int:
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Optimized manifest is invalid: " + "; ".join(errors))
-        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+        print(_save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run))
     _emit(plan, args.format)
     return 0
 
@@ -369,7 +376,7 @@ def _cmd_migrate(args: argparse.Namespace) -> int:
 
 
 def _cmd_resolve_dependencies(args: argparse.Namespace) -> int:
-    manifest = _load_manifest(args.manifest)
+    manifest, manifest_sha256 = _load_manifest_snapshot(args.manifest)
     if manifest.get("schema_version") != CURRENT_MANIFEST_VERSION:
         raise ValueError(f"Dependency resolution requires manifest {CURRENT_MANIFEST_VERSION}; run 'migrate' first")
     resolutions = read_json(args.resolutions)
@@ -426,14 +433,14 @@ def _cmd_resolve_dependencies(args: argparse.Namespace) -> int:
     if errors:
         raise ValueError("Dependency graph is invalid: " + "; ".join(errors))
     if args.apply:
-        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+        print(_save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run))
     report = {"applied": bool(args.apply and not args.dry_run), "added": added, "unresolved": unresolved, "schedule_note": "blocks and reviews edges order assignments; informs edges preserve parallel scheduling"}
     _emit(report, args.format)
     return 0
 
 
-def _load_agent_result(manifest_path: Path, result_path: Path) -> tuple[dict[str, Any], dict[str, Any], str]:
-    manifest = _load_manifest(manifest_path)
+def _load_agent_result(manifest_path: Path, result_path: Path) -> tuple[dict[str, Any], dict[str, Any], str, str]:
+    manifest, manifest_sha256 = _load_manifest_snapshot(manifest_path)
     manifest_errors = validate_manifest(manifest)
     if manifest_errors:
         raise ValueError("Manifest is invalid: " + "; ".join(manifest_errors))
@@ -446,11 +453,11 @@ def _load_agent_result(manifest_path: Path, result_path: Path) -> tuple[dict[str
     recorded = next((item for item in manifest.get("execution", {}).get("results", []) if item["result_file"] == relative_result), None)
     if recorded and recorded["result_sha256"] != result_sha256(result_path):
         raise ValueError(f"Recorded result file {relative_result!r} has changed since it was added to the execution ledger")
-    return manifest, result, relative_result
+    return manifest, result, relative_result, manifest_sha256
 
 
 def _cmd_validate_result(args: argparse.Namespace) -> int:
-    manifest, result, relative_result = _load_agent_result(args.manifest, args.result)
+    manifest, result, relative_result, _ = _load_agent_result(args.manifest, args.result)
     errors = validate_agent_result(result, manifest)
     ledger = manifest["execution"]["results"]
     if any(item["result_id"] == result.get("result_id") for item in ledger):
@@ -470,7 +477,7 @@ def _cmd_validate_result(args: argparse.Namespace) -> int:
 
 
 def _cmd_record_result(args: argparse.Namespace) -> int:
-    manifest, result, relative_result = _load_agent_result(args.manifest, args.result)
+    manifest, result, relative_result, manifest_sha256 = _load_agent_result(args.manifest, args.result)
     if args.review != "pending" and not args.reviewer:
         raise ValueError("Provide --reviewer for accepted, rejected, or rework_required decisions")
     errors = validate_agent_result(result, manifest, args.review)
@@ -523,7 +530,7 @@ def _cmd_record_result(args: argparse.Namespace) -> int:
     if validation_errors:
         raise ValueError("Updated manifest is invalid: " + "; ".join(validation_errors))
     if args.apply:
-        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+        print(_save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run))
     else:
         print(f"Dry run: result is valid and would {action} the execution ledger; pass --apply to record it.")
     _emit({"result_id": result["result_id"], "assignment_id": assignment_id, "status": result["status"], "review_status": args.review, "action": action, "recorded": bool(args.apply and not args.dry_run)}, "json")
@@ -570,7 +577,7 @@ def _cmd_estimate(args: argparse.Namespace) -> int:
     if args.input_rate_per_million is not None and not args.currency:
         raise ValueError("Provide --currency when supplying token rates")
     currency = args.currency or "UNSPECIFIED"
-    manifest = _load_manifest(args.manifest)
+    manifest, manifest_sha256 = _load_manifest_snapshot(args.manifest)
     specialists = len(manifest["team"]["specialists"])
     handoffs = manifest["team"]["optimization"]["handoffs"]
     complexity = len(manifest["features"]) + len(manifest["architecture"]["components"])
@@ -593,7 +600,7 @@ def _cmd_estimate(args: argparse.Namespace) -> int:
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Updated manifest is invalid: " + "; ".join(errors))
-        print(_save_manifest(args.manifest, manifest, dry_run=args.dry_run))
+        print(_save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run))
     _emit(result, "json")
     return 0
 

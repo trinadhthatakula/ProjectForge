@@ -7,15 +7,20 @@ import sys
 import tempfile
 import tomllib
 import unittest
+from concurrent.futures import ThreadPoolExecutor
+from copy import deepcopy
 from html.parser import HTMLParser
 from pathlib import Path
+from threading import Barrier
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from projectforge_lib.changes import compare_manifests
-from projectforge_lib.common import catalog, new_assignment, new_manifest, write_text
+from projectforge_lib.common import catalog, new_assignment, new_manifest, read_json_with_sha256, write_text, write_text_if_unchanged
 from projectforge_lib.discovery import discover_environment, inspect_skill, match_capabilities
+from projectforge_lib.handoffs import validate_agent_result
 from projectforge_lib.optimization import optimize_team
 from projectforge_lib.rendering import render_html, render_markdown
 from projectforge_lib.validation import validate_manifest, validate_role_catalog
@@ -38,6 +43,56 @@ class ProjectForgeTests(unittest.TestCase):
         manifest["technology"]["selected"] = ["Kotlin", "Jetpack Compose"]
         manifest["architecture"].update({"summary": "Compose UI with a local database and scheduler.", "components": [{"id": "ui", "name": "Android UI", "description": "Plant list and care actions"}, {"id": "store", "name": "Local store", "description": "Plant profiles"}], "flows": [{"from": "ui", "to": "store", "label": "read plant profiles"}]})
         return manifest
+
+    def make_legacy_manifest(self) -> dict:
+        manifest = self.make_android_manifest()
+        manifest["schema_version"] = "1.0.0"
+        manifest.pop("execution")
+        manifest["team"]["specialists"] = [new_assignment(self.role_map["android-engineer"])]
+        manifest["team"]["specialists"][0]["inputs"].append("Prerequisite: reviewed API contract")
+        for assignment in [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]:
+            assignment.pop("prerequisites")
+            assignment.pop("result_contract")
+        return manifest
+
+    def make_handoff_manifest(self) -> dict:
+        manifest = self.make_android_manifest()
+        assignment = new_assignment(self.role_map["android-engineer"])
+        assignment["result_contract"].update({
+            "allowed_paths": ["src/"],
+            "protected_paths": ["src/secrets/"],
+            "required_checks": ["Unit tests"],
+        })
+        manifest["team"]["specialists"] = [assignment]
+        return manifest
+
+    def make_agent_result(self, manifest: dict, **overrides) -> dict:
+        return {
+            "protocol_version": "1.0.0",
+            "result_id": "android-result-1",
+            "assignment_id": manifest["team"]["specialists"][0]["id"],
+            "manifest_version": manifest["schema_version"],
+            "status": "validated",
+            "summary": "Implemented the authentication repository.",
+            "outputs": [{"path": "src/auth.py", "description": "Authentication repository"}],
+            "evidence": ["Unit tests completed."],
+            "validation": {"passed": True, "checks": [{"name": "Unit tests", "status": "passed", "evidence": ["3 tests passed"]}]},
+            "unresolved_questions": [],
+            "risks": [],
+            "assumptions": [],
+            "handoff_notes": "Ready for integration review.",
+            "attempt": 1,
+            "prior_result_id": None,
+            "created_at": "2026-11-05T00:00:00Z",
+            **overrides,
+        }
+
+    def run_cli(self, args: list[str]) -> tuple[int, str, str]:
+        from projectforge_lib.cli import main
+        stdout, stderr = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+            code = main(args)
+        return code, stdout.getvalue(), stderr.getvalue()
 
     def test_catalog_profiles_match_schema_and_include_all_specialists(self) -> None:
         self.assertEqual(validate_role_catalog(), [])
@@ -91,6 +146,59 @@ class ProjectForgeTests(unittest.TestCase):
             self.assertEqual([item["role_id"] for item in updated["team"]["specialists"]], ["product-manager", "android-engineer"])
             self.assertIn("role_relevance", updated["team"]["optimization"]["metrics"])
             self.assertEqual(validate_manifest(updated), [])
+
+    def test_manifest_updates_reject_stale_snapshots_without_losing_newer_edits(self) -> None:
+        import projectforge_lib.cli as cli
+
+        manifest = self.make_android_manifest()
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = Path(directory) / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            original_save = cli._save_manifest
+
+            def simulate_concurrent_edit(path, updated_manifest, *, expected_sha256, dry_run=False):
+                concurrent = json.loads(path.read_text(encoding="utf-8"))
+                concurrent["project"]["summary"] = "Changed by a concurrent writer"
+                path.write_text(json.dumps(concurrent), encoding="utf-8")
+                return original_save(path, updated_manifest, expected_sha256=expected_sha256, dry_run=dry_run)
+
+            with patch("projectforge_lib.cli._save_manifest", side_effect=simulate_concurrent_edit):
+                code, _, error = self.run_cli([
+                    "optimize", str(manifest_path), "--selection-mode", "manual",
+                    "--role", "android-engineer", "--apply",
+                ])
+
+            self.assertEqual(code, 2)
+            self.assertIn("Manifest changed since it was read", error)
+            latest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(latest["project"]["summary"], "Changed by a concurrent writer")
+            self.assertEqual(latest["team"]["specialists"], [])
+
+    def test_concurrent_manifest_writes_serialize_and_only_one_stale_snapshot_wins(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            manifest_path = Path(directory) / "manifest.json"
+            manifest_path.write_text('{"generation": 0}\n', encoding="utf-8")
+            _, original_hash = read_json_with_sha256(manifest_path)
+            start = Barrier(2)
+
+            def write_generation(generation: int) -> str:
+                start.wait(timeout=5)
+                try:
+                    write_text_if_unchanged(
+                        manifest_path,
+                        json.dumps({"generation": generation}) + "\n",
+                        expected_sha256=original_hash,
+                    )
+                    return "written"
+                except ValueError as error:
+                    self.assertIn("Manifest changed since it was read", str(error))
+                    return "conflict"
+
+            with ThreadPoolExecutor(max_workers=2) as workers:
+                outcomes = list(workers.map(write_generation, [1, 2]))
+
+            self.assertEqual(sorted(outcomes), ["conflict", "written"])
+            self.assertIn(json.loads(manifest_path.read_text(encoding="utf-8"))["generation"], {1, 2})
 
     def test_manual_and_hybrid_require_user_seed_roles_and_never_trim(self) -> None:
         manifest = self.make_android_manifest()
@@ -148,6 +256,27 @@ class ProjectForgeTests(unittest.TestCase):
         platform_match = next(item for item in android if item["requirement"] == "Android platform knowledge")
         self.assertEqual(platform_match["status"], "available")
         self.assertEqual(report["runtime"]["session_availability"], "unverified")
+
+    def test_local_skill_metadata_does_not_verify_tool_requirements(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill_dir = root / "skills" / "android-sdk-tools-guide"
+            skill_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: Android SDK Tools Guide\ndescription: Android SDK tools, Gradle, and official Android documentation.\n---\n",
+                encoding="utf-8",
+            )
+            inventory = discover_environment(cwd=root, extra_skill_dirs=[root / "skills"])
+            inventory["skills"] = [item for item in inventory["skills"] if item["name"] == "Android SDK Tools Guide"]
+            inventory["agents"] = []
+            inventory["tools"] = []
+
+            report = match_capabilities(self.make_android_manifest(), inventory, self.roles)
+            android = [item for item in report["role_matches"] if item["role_id"] == "android-engineer"]
+            sdk_requirement = next(item for item in android if item["requirement"] == "Android SDK tools")
+            self.assertEqual(sdk_requirement["requirement_type"], "tool")
+            self.assertEqual(sdk_requirement["status"], "unverified")
+            self.assertFalse(any("Android SDK Tools Guide" in evidence for evidence in sdk_requirement["evidence"]))
 
     def test_complete_inventory_marks_unmatched_capability_missing(self) -> None:
         manifest = self.make_android_manifest()
@@ -212,6 +341,203 @@ class ProjectForgeTests(unittest.TestCase):
         manifest["dependencies"] = [{"from": "android-engineer", "to": "missing", "kind": "blocks"}]
         errors = validate_manifest(manifest)
         self.assertTrue(any("unknown" in error or "missing" in error for error in errors), errors)
+
+    def test_dependency_resolver_orders_blocking_edges_and_keeps_informs_parallel(self) -> None:
+        manifest = self.make_android_manifest()
+        role_ids = ["android-engineer", "backend-engineer", "qa-test-engineer"]
+        manifest["team"]["specialists"] = [new_assignment(self.role_map[role_id]) for role_id in role_ids]
+        assignments = {item["id"]: item for item in manifest["team"]["specialists"]}
+        assignments["android-engineer"]["prerequisites"] = ["Backend API contract"]
+        assignments["qa-test-engineer"]["prerequisites"] = ["API context"]
+
+        resolutions = [
+            {"assignment_id": "android-engineer", "prerequisite": "Backend API contract", "provider_assignment_id": "backend-engineer", "kind": "blocks"},
+            {"assignment_id": "qa-test-engineer", "prerequisite": "API context", "provider_assignment_id": "backend-engineer", "kind": "informs"},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            resolutions_path = root / "resolutions.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            resolutions_path.write_text(json.dumps(resolutions), encoding="utf-8")
+
+            code, output, error = self.run_cli(["resolve-dependencies", str(manifest_path), str(resolutions_path), "--apply", "--format", "json"])
+
+            self.assertEqual(code, 0, error)
+            report_start = output.index("{")
+            report, _ = json.JSONDecoder().raw_decode(output[report_start:])
+            self.assertTrue(report["applied"])
+            unresolved = {(item["assignment_id"], item["prerequisite"]) for item in report["unresolved"]}
+            self.assertNotIn(("android-engineer", "Backend API contract"), unresolved)
+            self.assertNotIn(("qa-test-engineer", "API context"), unresolved)
+            updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(validate_manifest(updated), [])
+            self.assertEqual({edge["kind"] for edge in updated["dependencies"]}, {"blocks", "informs"})
+
+            plan = optimize_team(updated, roles=self.roles, requested_roles=role_ids, selection_mode="manual")
+            self.assertEqual(plan["schedule"], [["backend-engineer", "qa-test-engineer", "supervisor"], ["android-engineer"]])
+
+    def test_dependency_resolver_rejects_unknown_providers_and_cycles_without_writing(self) -> None:
+        manifest = self.make_android_manifest()
+        role_ids = ["android-engineer", "backend-engineer"]
+        manifest["team"]["specialists"] = [new_assignment(self.role_map[role_id]) for role_id in role_ids]
+        assignments = {item["id"]: item for item in manifest["team"]["specialists"]}
+        assignments["android-engineer"]["prerequisites"] = ["Backend API contract"]
+        assignments["backend-engineer"]["prerequisites"] = ["Android implementation"]
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            resolutions_path = root / "resolutions.json"
+            original = json.dumps(manifest)
+            manifest_path.write_text(original, encoding="utf-8")
+
+            resolutions_path.write_text(json.dumps([{
+                "assignment_id": "android-engineer", "prerequisite": "Backend API contract",
+                "provider_assignment_id": "missing-provider", "kind": "blocks",
+            }]), encoding="utf-8")
+            code, _, error = self.run_cli(["resolve-dependencies", str(manifest_path), str(resolutions_path), "--apply"])
+            self.assertEqual(code, 2)
+            self.assertIn("unknown provider_assignment_id", error)
+            self.assertEqual(manifest_path.read_text(encoding="utf-8"), original)
+
+            cycle = [
+                {"assignment_id": "android-engineer", "prerequisite": "Backend API contract", "provider_assignment_id": "backend-engineer", "kind": "blocks"},
+                {"assignment_id": "backend-engineer", "prerequisite": "Android implementation", "provider_assignment_id": "android-engineer", "kind": "blocks"},
+            ]
+            resolutions_path.write_text(json.dumps(cycle), encoding="utf-8")
+            code, _, error = self.run_cli(["resolve-dependencies", str(manifest_path), str(resolutions_path), "--apply"])
+            self.assertEqual(code, 2)
+            self.assertIn("team dependency cycle", error)
+            self.assertEqual(manifest_path.read_text(encoding="utf-8"), original)
+
+    def test_manifest_migration_preserves_source_and_maps_legacy_prerequisites(self) -> None:
+        manifest = self.make_legacy_manifest()
+        self.assertEqual(validate_manifest(manifest), [])
+        source_content = json.dumps(manifest, indent=2) + "\n"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "legacy.json"
+            output_path = root / "migrated.json"
+            source_path.write_text(source_content, encoding="utf-8")
+
+            code, _, error = self.run_cli(["migrate", str(source_path), "--output", str(output_path), "--dry-run"])
+            self.assertEqual(code, 0, error)
+            self.assertFalse(output_path.exists())
+
+            code, _, error = self.run_cli(["migrate", str(source_path), "--output", str(output_path)])
+            self.assertEqual(code, 0, error)
+            migrated = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(validate_manifest(migrated), [])
+            self.assertEqual(migrated["schema_version"], "1.1.0")
+            self.assertEqual(migrated["execution"], {"protocol_version": "1.0.0", "results": []})
+            assignment = migrated["team"]["specialists"][0]
+            self.assertIn("reviewed API contract", assignment["prerequisites"])
+            self.assertEqual(assignment["result_contract"]["completion_criteria"], assignment["acceptance_criteria"])
+            self.assertEqual(source_path.read_text(encoding="utf-8"), source_content)
+
+    def test_manifest_migration_rejects_unsupported_versions_and_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "source.json"
+            output_path = root / "existing.json"
+            legacy = self.make_legacy_manifest()
+            source_path.write_text(json.dumps(legacy), encoding="utf-8")
+            output_path.write_text("preserve", encoding="utf-8")
+
+            code, _, error = self.run_cli(["migrate", str(source_path), "--output", str(output_path)])
+            self.assertEqual(code, 2)
+            self.assertIn("Refusing to overwrite", error)
+            self.assertEqual(output_path.read_text(encoding="utf-8"), "preserve")
+
+            legacy["schema_version"] = "9.9.9"
+            source_path.write_text(json.dumps(legacy), encoding="utf-8")
+            code, _, error = self.run_cli(["migrate", str(source_path), "--output", str(root / "unsupported.json")])
+            self.assertEqual(code, 2)
+            self.assertIn("Unsupported manifest schema_version", error)
+
+    def test_agent_result_validation_enforces_version_paths_checks_and_unique_errors(self) -> None:
+        manifest = self.make_handoff_manifest()
+        result = self.make_agent_result(manifest)
+        self.assertEqual(validate_agent_result(result, manifest), [])
+
+        mismatched_version = deepcopy(result)
+        mismatched_version["manifest_version"] = "1.0.0"
+        self.assertTrue(any("does not match manifest schema_version" in error for error in validate_agent_result(mismatched_version, manifest)))
+
+        protected_output = deepcopy(result)
+        protected_output["outputs"][0]["path"] = "src/secrets/token.txt"
+        self.assertTrue(any("overlaps a protected path" in error for error in validate_agent_result(protected_output, manifest)))
+
+        escaping_output = deepcopy(result)
+        escaping_output["outputs"][0]["path"] = "../outside.txt"
+        self.assertTrue(any("normalized relative POSIX path" in error for error in validate_agent_result(escaping_output, manifest)))
+
+        missing_check = deepcopy(result)
+        missing_check["validation"]["checks"] = [{"name": "Lint", "status": "passed", "evidence": ["clean"]}]
+        self.assertTrue(any("required validation check 'Unit tests'" in error for error in validate_agent_result(missing_check, manifest)))
+
+        unlinked_retry = deepcopy(result)
+        unlinked_retry["attempt"] = 2
+        unlinked_retry["prior_result_id"] = "unknown-result"
+        self.assertTrue(any("immediately preceding recorded attempt" in error for error in validate_agent_result(unlinked_retry, manifest)))
+
+        duplicate_check = deepcopy(result)
+        duplicate_check["validation"]["checks"].append(deepcopy(duplicate_check["validation"]["checks"][0]))
+        errors = validate_agent_result(duplicate_check, manifest)
+        duplicate_errors = [error for error in errors if error == "validation.checks contains duplicate check names"]
+        self.assertEqual(len(duplicate_errors), 1, errors)
+
+    def test_agent_result_review_rework_retry_and_immutable_evidence_lifecycle(self) -> None:
+        manifest = self.make_handoff_manifest()
+        first_result = self.make_agent_result(manifest, status="completed", validation={
+            "passed": False,
+            "checks": [{"name": "Unit tests", "status": "failed", "evidence": ["One test failed"]}],
+        })
+        retry_result = self.make_agent_result(manifest, result_id="android-result-2", status="validated", attempt=2, prior_result_id="android-result-1")
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            result_dir = root / "results"
+            result_dir.mkdir()
+            first_path = result_dir / "attempt-1.json"
+            retry_path = result_dir / "attempt-2.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            first_path.write_text(json.dumps(first_result), encoding="utf-8")
+
+            code, _, error = self.run_cli(["record-result", str(manifest_path), str(first_path), "--review", "accepted", "--reviewer", "supervisor", "--apply"])
+            self.assertEqual(code, 2)
+            self.assertIn("required validation check 'Unit tests'", error)
+            self.assertEqual(json.loads(manifest_path.read_text(encoding="utf-8"))["execution"]["results"], [])
+
+            code, _, error = self.run_cli(["record-result", str(manifest_path), str(first_path), "--review", "rework_required", "--reviewer", "supervisor", "--review-notes", "Fix failing test", "--apply"])
+            self.assertEqual(code, 0, error)
+
+            retry_path.write_text(json.dumps(retry_result), encoding="utf-8")
+            output = root / "src" / "auth.py"
+            code, _, error = self.run_cli(["validate-result", str(manifest_path), str(retry_path)])
+            self.assertEqual(code, 0, error)
+            code, _, error = self.run_cli(["record-result", str(manifest_path), str(retry_path), "--review", "accepted", "--reviewer", "supervisor", "--apply"])
+            self.assertEqual(code, 2)
+            self.assertIn("does not exist", error)
+
+            output.parent.mkdir()
+            output.write_text("class AuthRepository: pass\n", encoding="utf-8")
+            code, _, error = self.run_cli(["record-result", str(manifest_path), str(retry_path), "--review", "accepted", "--reviewer", "supervisor", "--apply"])
+            self.assertEqual(code, 0, error)
+
+            recorded = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(validate_manifest(recorded), [])
+            self.assertEqual([item["review_status"] for item in recorded["execution"]["results"]], ["rework_required", "accepted"])
+            self.assertEqual(recorded["execution"]["results"][1]["prior_result_id"], "android-result-1")
+
+            first_result["summary"] = "Tampered after recording"
+            first_path.write_text(json.dumps(first_result), encoding="utf-8")
+            code, _, error = self.run_cli(["validate-result", str(manifest_path), str(first_path)])
+            self.assertEqual(code, 2)
+            self.assertIn("has changed since it was added to the execution ledger", error)
 
     def test_manifest_validation_rejects_duplicate_and_missing_assignment_fields(self) -> None:
         manifest = self.make_android_manifest()

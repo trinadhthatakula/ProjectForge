@@ -75,18 +75,14 @@ def validate_agent_result(result: dict[str, Any], manifest: dict[str, Any], revi
     for check in result["validation"]["checks"]:
         if check["status"] == "passed" and not check["evidence"]:
             errors.append(f"passed validation check {check['name']!r} must include evidence")
-    if len(check_statuses) != len(result["validation"]["checks"]):
-        errors.append("validation.checks contains duplicate check names")
-    for check in result["validation"]["checks"]:
-        if check["status"] == "passed" and not check["evidence"]:
-            errors.append(f"passed validation check {check['name']!r} must include evidence")
     if result["validation"]["passed"] and (not result["validation"]["checks"] or any(status != "passed" for status in check_statuses.values())):
         errors.append("validation.passed cannot be true unless at least one check is recorded and every recorded check passed")
     if result["status"] == "validated" and not result["validation"]["passed"]:
         errors.append("status 'validated' requires validation.passed=true")
-    for required_check in contract.get("required_checks", []):
-        if check_statuses.get(required_check.casefold()) != "passed":
-            errors.append(f"required validation check {required_check!r} must be reported as passed")
+    if result["status"] == "validated" or review_status == "accepted":
+        for required_check in contract.get("required_checks", []):
+            if check_statuses.get(required_check.casefold()) != "passed":
+                errors.append(f"required validation check {required_check!r} must be reported as passed")
     if review_status == "accepted":
         if result["status"] not in {"completed", "validated"}:
             errors.append("only a completed or validated result can be accepted")
