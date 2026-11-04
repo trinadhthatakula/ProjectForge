@@ -73,6 +73,23 @@ def _result_contract_items(contract: dict[str, Any]) -> list[str]:
     ]
 
 
+def _execution_event_rows(events: list[dict[str, Any]]) -> list[list[Any]]:
+    rows = []
+    for event in events:
+        review = ""
+        if event.get("review_status"):
+            review = f"{event.get('previous_review_status', '')} → {event['review_status']}"
+        metadata = []
+        for key, label in (("source_version", "from"), ("classification", "classification"), ("affected_count", "affected")):
+            if key in event:
+                metadata.append(f"{label}: {event[key]}")
+        rows.append([
+            event["occurred_at"], event["event_type"], event.get("assignment_id", ""),
+            event.get("result_id", ""), review, "; ".join(metadata),
+        ])
+    return rows
+
+
 def _capability_match_rows(caps: dict[str, Any]) -> list[list[Any]]:
     rows = []
     for match in caps["role_matches"]:
@@ -233,7 +250,8 @@ def render_markdown(manifest: dict[str, Any]) -> str:
     sections.append("## Specialist team\n\n**Approval status:** " + _md(team["approval_status"]) + "\n\n**Selection mode:** " + _md(team["selection_mode"]) + "\n\n" + _md_table(["Agent", "Role", "Mission", "Outputs", "Dependencies"], assignment_rows) + "\n\n### Team optimization estimates\n\n" + _md_table(["Measure", "Estimate", "Basis"], metric_rows) + "\n\n### Selection rationale\n" + _md_list(team["rationale"]) + "\n\n### Execution flow\n\n" + _dependency_mermaid(manifest) + "\n\n## Agent assignment contracts\n\n" + "\n\n".join(contracts))
     sections.append("## Dependencies\n\n" + _md_table(["Work item", "Depends on", "Relationship"], [[item["from"], item["to"], item["kind"]] for item in manifest["dependencies"]]))
     execution_rows = [[item["result_id"], item["assignment_id"], item["status"], item["attempt"], item["review_status"], item["result_file"]] for item in manifest.get("execution", {}).get("results", [])]
-    sections.append("## Agent execution results\n\nThe supervisor-controlled ledger points to separate result files; each file is validated against the provider-neutral result schema.\n\n" + _md_table(["Result", "Assignment", "Status", "Attempt", "Review", "Evidence file"], execution_rows))
+    event_rows = _execution_event_rows(manifest.get("execution", {}).get("events", []))
+    sections.append("## Agent execution results\n\nThe supervisor-controlled ledger points to separate result files; each file is validated against the provider-neutral result schema.\n\n" + _md_table(["Result", "Assignment", "Status", "Attempt", "Review", "Evidence file"], execution_rows) + "\n\n### Execution event history\n\nEvents record CLI-applied state changes and review transitions. They contain metadata only; result evidence stays in its separately validated file.\n\n" + _md_table(["Time", "Event", "Assignment", "Result", "Review transition", "Metadata"], event_rows))
     sections.append("## Deliverables and milestones\n\n### Deliverables\n\n" + _md_table(["Deliverable", "Owner", "Status", "Acceptance criteria"], [[item["name"], item["owner"], item["status"], "; ".join(item["acceptance_criteria"])] for item in manifest["deliverables"]]) + "\n\n### Milestones\n\n" + _md_table(["Milestone", "Target", "Depends on"], [[item["name"], item["target"], "; ".join(item["depends_on"])] for item in manifest["milestones"]]))
     sections.append("## Risks\n\n" + _md_table(["Risk", "Likelihood", "Impact", "Mitigation", "Owner"], [[item["description"], item["likelihood"], item["impact"], item["mitigation"], item["owner"]] for item in manifest["risks"]]))
     sections.append("## Assumptions\n\n" + _md_table(["Assumption", "Validation action", "Owner", "Status"], [[item["statement"], item["validation_action"], item["owner"], item["status"]] for item in manifest["assumptions"]]))
@@ -300,7 +318,8 @@ def render_html(manifest: dict[str, Any]) -> str:
     add("team", "Specialist team", '<p>Approval: <strong>' + _html(team["approval_status"]) + "</strong>. Selection mode: <strong>" + _html(team["selection_mode"]) + "</strong>. Supervisor plus " + _html(len(team["specialists"])) + " specialists.</p>" + '<h3>Team optimization estimates</h3>' + _html_table(["Measure", "Estimate", "Basis"], metric_rows) + '<div class="panel"><h3>Selection rationale</h3>' + _html_list(team["rationale"]) + "</div>" + _html_dependencies(manifest) + '<h3>Assignment contracts</h3><div class="cards">' + "".join(cards) + "</div>")
     add("dependencies", "Dependencies", _html_table(["Work item", "Depends on", "Relationship"], [[item["from"], item["to"], item["kind"]] for item in manifest["dependencies"]]))
     execution_rows = [[item["result_id"], item["assignment_id"], item["status"], item["attempt"], item["review_status"], item["result_file"]] for item in manifest.get("execution", {}).get("results", [])]
-    add("execution", "Agent execution results", '<p>The supervisor-controlled ledger points to separate result files; each file is validated against the provider-neutral result schema.</p>' + _html_table(["Result", "Assignment", "Status", "Attempt", "Review", "Evidence file"], execution_rows))
+    event_rows = _execution_event_rows(manifest.get("execution", {}).get("events", []))
+    add("execution", "Agent execution results", '<p>The supervisor-controlled ledger points to separate result files; each file is validated against the provider-neutral result schema.</p>' + _html_table(["Result", "Assignment", "Status", "Attempt", "Review", "Evidence file"], execution_rows) + '<h3>Execution event history</h3><p>Events record CLI-applied state changes and review transitions. They contain metadata only; result evidence stays in its separately validated file.</p>' + _html_table(["Time", "Event", "Assignment", "Result", "Review transition", "Metadata"], event_rows))
     deliverables = []
     for index, item in enumerate(manifest["deliverables"]):
         deliverables.append([f'<label><input type="checkbox" data-checklist="deliverable-{index}"> {_html(item["name"])}</label>', _html(item["owner"]), _html(item["status"]), _html("; ".join(item["acceptance_criteria"]))])

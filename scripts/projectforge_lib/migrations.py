@@ -4,7 +4,7 @@ from copy import deepcopy
 from typing import Any
 
 
-CURRENT_MANIFEST_VERSION = "1.2.0"
+CURRENT_MANIFEST_VERSION = "1.3.0"
 
 
 def _migrate_1_0_0_to_1_1_0(manifest: dict[str, Any]) -> dict[str, Any]:
@@ -60,11 +60,19 @@ def _migrate_1_1_0_to_1_2_0(manifest: dict[str, Any]) -> dict[str, Any]:
     return migrated
 
 
+def _migrate_1_2_0_to_1_3_0(manifest: dict[str, Any]) -> dict[str, Any]:
+    migrated = deepcopy(manifest)
+    migrated["execution"].setdefault("events", [])
+    migrated["schema_version"] = "1.3.0"
+    return migrated
+
+
 MIGRATIONS = {
     "1.0.0": _migrate_1_0_0_to_1_1_0,
     "1.1.0": _migrate_1_1_0_to_1_2_0,
+    "1.2.0": _migrate_1_2_0_to_1_3_0,
 }
-SUPPORTED_MANIFEST_VERSIONS = {"1.0.0", "1.1.0", CURRENT_MANIFEST_VERSION}
+SUPPORTED_MANIFEST_VERSIONS = {"1.0.0", "1.1.0", "1.2.0", CURRENT_MANIFEST_VERSION}
 
 
 def migrate_manifest(manifest: dict[str, Any], target_version: str = CURRENT_MANIFEST_VERSION) -> dict[str, Any]:

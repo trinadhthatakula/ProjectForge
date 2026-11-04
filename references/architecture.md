@@ -36,7 +36,7 @@ flowchart LR
 
 The manifest is the canonical specification and execution ledger. Agent result files are separately versioned evidence records; the supervisor records their lifecycle and acceptance in the manifest. Commands that apply changes to an existing manifest are serialized per path and compare the file with the snapshot they read; stale updates fail instead of replacing newer changes. Reload the manifest, review the conflict, and rerun the intended operation. A generated document never becomes an alternate source of truth. Team optimization is explainable and advisory: the supervisor resolves context-sensitive decisions, and roster validation is strict about the seven-person ceiling. User choices and evidence take precedence over heuristic recommendations.
 
-Capability matching is a discovery stage, not proof of task fit. Manifest version 1.2.0 records a separate evidence-backed verification for accessibility, instructions, operation support, permissions, and expected output. Required capabilities must be verified before the readiness gate accepts `ready`.
+Capability matching is a discovery stage, not proof of task fit. Manifest versions 1.2.0 and later record separate evidence-backed verification for accessibility, instructions, operation support, permissions, and expected output. Required capabilities must be verified before the readiness gate accepts `ready`.
 
 ## Capability model
 

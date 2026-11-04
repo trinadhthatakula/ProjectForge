@@ -20,6 +20,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from projectforge_lib.changes import compare_manifests
 from projectforge_lib.common import catalog, new_assignment, new_manifest, read_json_with_sha256, write_text, write_text_if_unchanged
 from projectforge_lib.discovery import discover_environment, inspect_skill, match_capabilities
+from projectforge_lib.events import append_execution_event
 from projectforge_lib.handoffs import validate_agent_result
 from projectforge_lib.optimization import optimize_team
 from projectforge_lib.rendering import render_html, render_markdown
@@ -145,6 +146,7 @@ class ProjectForgeTests(unittest.TestCase):
             self.assertEqual(updated["team"]["selection_mode"], "hybrid")
             self.assertEqual([item["role_id"] for item in updated["team"]["specialists"]], ["product-manager", "android-engineer"])
             self.assertIn("role_relevance", updated["team"]["optimization"]["metrics"])
+            self.assertEqual(updated["execution"]["events"][-1]["event_type"], "team_plan_applied")
             self.assertEqual(validate_manifest(updated), [])
 
     def test_manifest_updates_reject_stale_snapshots_without_losing_newer_edits(self) -> None:
@@ -301,6 +303,19 @@ class ProjectForgeTests(unittest.TestCase):
                 self.assertEqual(main(["match", str(manifest_path), "--cwd", str(root), "--inventory-complete", "--format", "json"]), 0)
             self.assertTrue(json.loads(out.getvalue())["runtime"]["session_inventory_complete"])
 
+    def test_match_apply_persists_capability_report_and_audit_event(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(self.make_android_manifest()), encoding="utf-8")
+            code, _, error = self.run_cli(["match", str(manifest_path), "--cwd", str(root), "--apply", "--inventory-complete"])
+            self.assertEqual(code, 0, error)
+            updated = json.loads(manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(validate_manifest(updated), [])
+            self.assertTrue(updated["capability_report"]["role_matches"])
+            self.assertEqual(updated["execution"]["events"][0]["event_type"], "capability_discovery_applied")
+            self.assertGreater(updated["execution"]["events"][0]["affected_count"], 0)
+
     def test_examples_validate_against_current_manifest_schema(self) -> None:
         for path in sorted((ROOT / "examples").glob("*.json")):
             with self.subTest(example=path.name):
@@ -373,6 +388,7 @@ class ProjectForgeTests(unittest.TestCase):
             updated = json.loads(manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(validate_manifest(updated), [])
             self.assertEqual({edge["kind"] for edge in updated["dependencies"]}, {"blocks", "informs"})
+            self.assertEqual(updated["execution"]["events"][-1]["event_type"], "dependency_resolution_applied")
 
             plan = optimize_team(updated, roles=self.roles, requested_roles=role_ids, selection_mode="manual")
             self.assertEqual(plan["schedule"], [["backend-engineer", "qa-test-engineer", "supervisor"], ["android-engineer"]])
@@ -430,12 +446,37 @@ class ProjectForgeTests(unittest.TestCase):
             self.assertEqual(code, 0, error)
             migrated = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertEqual(validate_manifest(migrated), [])
-            self.assertEqual(migrated["schema_version"], "1.2.0")
-            self.assertEqual(migrated["execution"], {"protocol_version": "1.0.0", "results": []})
+            self.assertEqual(migrated["schema_version"], "1.3.0")
+            self.assertEqual(migrated["execution"]["protocol_version"], "1.0.0")
+            self.assertEqual(migrated["execution"]["results"], [])
+            migration_event = migrated["execution"]["events"][-1]
+            self.assertEqual(migration_event["event_type"], "manifest_migrated")
+            self.assertEqual(migration_event["source_version"], "1.0.0")
             assignment = migrated["team"]["specialists"][0]
             self.assertIn("reviewed API contract", assignment["prerequisites"])
             self.assertEqual(assignment["result_contract"]["completion_criteria"], assignment["acceptance_criteria"])
             self.assertEqual(source_path.read_text(encoding="utf-8"), source_content)
+
+    def test_manifest_1_2_archive_validates_and_migrates_with_empty_event_history(self) -> None:
+        manifest = self.make_android_manifest()
+        manifest["schema_version"] = "1.2.0"
+        manifest["execution"].pop("events", None)
+        self.assertEqual(validate_manifest(manifest), [])
+        original = json.dumps(manifest, indent=2) + "\n"
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "manifest-1.2.json"
+            output_path = root / "manifest-1.3.json"
+            source_path.write_text(original, encoding="utf-8")
+            code, _, error = self.run_cli(["migrate", str(source_path), "--output", str(output_path)])
+            self.assertEqual(code, 0, error)
+            migrated = json.loads(output_path.read_text(encoding="utf-8"))
+            self.assertEqual(validate_manifest(migrated), [])
+            self.assertEqual(migrated["schema_version"], "1.3.0")
+            self.assertEqual([event["event_type"] for event in migrated["execution"]["events"]], ["manifest_migrated"])
+            self.assertEqual(migrated["execution"]["events"][0]["source_version"], "1.2.0")
+            self.assertEqual(source_path.read_text(encoding="utf-8"), original)
 
     def test_manifest_migration_rejects_unsupported_versions_and_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -489,6 +530,15 @@ class ProjectForgeTests(unittest.TestCase):
         duplicate_errors = [error for error in errors if error == "validation.checks contains duplicate check names"]
         self.assertEqual(len(duplicate_errors), 1, errors)
 
+    def test_execution_event_metadata_rejects_secret_like_identifiers(self) -> None:
+        manifest = self.make_android_manifest()
+        with self.assertRaisesRegex(ValueError, "Secret-like values"):
+            append_execution_event(
+                manifest, "agent_result_recorded", assignment_id="android-engineer",
+                result_id="ghp_123456789012345678901234",
+            )
+        self.assertEqual(manifest["execution"]["events"], [])
+
     def test_agent_result_review_rework_retry_and_immutable_evidence_lifecycle(self) -> None:
         manifest = self.make_handoff_manifest()
         first_result = self.make_agent_result(manifest, status="completed", validation={
@@ -532,12 +582,53 @@ class ProjectForgeTests(unittest.TestCase):
             self.assertEqual(validate_manifest(recorded), [])
             self.assertEqual([item["review_status"] for item in recorded["execution"]["results"]], ["rework_required", "accepted"])
             self.assertEqual(recorded["execution"]["results"][1]["prior_result_id"], "android-result-1")
+            self.assertEqual(
+                [event["event_type"] for event in recorded["execution"]["events"]],
+                ["agent_result_recorded", "agent_result_reviewed", "agent_result_recorded", "agent_result_reviewed"],
+            )
+            self.assertEqual(recorded["execution"]["events"][1]["previous_review_status"], "pending")
+            self.assertEqual(recorded["execution"]["events"][1]["review_status"], "rework_required")
 
             first_result["summary"] = "Tampered after recording"
             first_path.write_text(json.dumps(first_result), encoding="utf-8")
             code, _, error = self.run_cli(["validate-result", str(manifest_path), str(first_path)])
             self.assertEqual(code, 2)
             self.assertIn("has changed since it was added to the execution ledger", error)
+
+    def test_distinct_offline_producer_fixtures_share_result_validation_and_review_contract(self) -> None:
+        fixtures = sorted((ROOT / "tests" / "fixtures" / "handoffs").glob("*.json"))
+        self.assertEqual(len(fixtures), 2)
+        for fixture in fixtures:
+            with self.subTest(fixture=fixture.name), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                manifest = self.make_handoff_manifest()
+                manifest_path = root / "manifest.json"
+                result_path = root / "results" / fixture.name
+                result_path.parent.mkdir()
+                result = json.loads(fixture.read_text(encoding="utf-8"))
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+                result_path.write_text(json.dumps(result), encoding="utf-8")
+                output_path = root / result["outputs"][0]["path"]
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                output_path.write_text("fixture output\n", encoding="utf-8")
+
+                code, _, error = self.run_cli(["validate-result", str(manifest_path), str(result_path)])
+                self.assertEqual(code, 0, error)
+                code, _, error = self.run_cli([
+                    "record-result", str(manifest_path), str(result_path),
+                    "--review", "accepted", "--reviewer", "supervisor", "--apply",
+                ])
+                self.assertEqual(code, 0, error)
+                recorded = json.loads(manifest_path.read_text(encoding="utf-8"))
+                self.assertEqual(validate_manifest(recorded), [])
+                self.assertEqual(recorded["execution"]["results"][0]["result_id"], result["result_id"])
+                self.assertEqual(recorded["execution"]["results"][0]["review_status"], "accepted")
+                markdown = render_markdown(recorded)
+                page = render_html(recorded)
+                self.assertIn("Execution event history", markdown)
+                self.assertIn("pending → accepted", markdown)
+                self.assertIn("agent_result_reviewed", page)
+                self.assertNotIn("Fixture check passed", markdown)
 
     def test_manifest_validation_rejects_duplicate_and_missing_assignment_fields(self) -> None:
         manifest = self.make_android_manifest()

@@ -12,6 +12,7 @@ from .changes import compare_manifests, diff_markdown
 from .classification import classify_project
 from .common import catalog, new_manifest, now_utc, read_json, read_json_with_sha256, skill_root, write_text, write_text_if_unchanged
 from .discovery import discover_environment, inspect_skill, match_capabilities
+from .events import append_execution_event
 from .handoffs import result_sha256, validate_agent_result, validate_result_location
 from .migrations import CURRENT_MANIFEST_VERSION, migrate_manifest
 from .optimization import _estimate, optimize_team
@@ -237,6 +238,7 @@ def _discover_args(args: argparse.Namespace) -> dict[str, Any]:
 
 def _cmd_init(args: argparse.Namespace) -> int:
     manifest = new_manifest(args.name, args.mode)
+    append_execution_event(manifest, "manifest_initialized")
     errors = validate_manifest(manifest)
     if errors:
         raise RuntimeError("Internal starter manifest is invalid: " + "; ".join(errors))
@@ -265,6 +267,7 @@ def _cmd_classify(args: argparse.Namespace) -> int:
         manifest["project"]["classification"] = result["classification"]
         manifest["facts"].append({"id": "project-classification", "topic": "Project classification", "value": result["classification"], "status": "recommended", "source": "ProjectForge signal heuristic", "rationale": "; ".join(result["evidence"])})
         manifest["discovery"]["updated_at"] = now_utc()
+        append_execution_event(manifest, "classification_applied", classification=result["classification"])
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Classified manifest is invalid: " + "; ".join(errors))
@@ -303,6 +306,8 @@ def _cmd_match(args: argparse.Namespace) -> int:
     inventory = _discover_args(args)
     report = match_capabilities(manifest, inventory, profiles)
     if args.apply:
+        manifest["discovery"]["updated_at"] = manifest["capability_report"]["generated_at"]
+        append_execution_event(manifest, "capability_discovery_applied", affected_count=len(report["role_matches"]))
         selected_role_ids = {item["role_id"] for item in [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]}
         if manifest["readiness"]["status"] == "ready" and any(
             item["role_id"] in selected_role_ids and item["kind"] == "required" for item in report["role_matches"]
@@ -339,6 +344,7 @@ def _cmd_optimize(args: argparse.Namespace) -> int:
         team["rationale"] = plan["rationale"]
         estimate = plan["estimates"]
         team["optimization"] = {"mode": mode, "coordination_score": estimate["coordination_score"], "estimated_input_tokens": estimate["estimated_input_tokens"], "estimated_output_tokens": estimate["estimated_output_tokens"], "handoffs": estimate["handoffs"], "metrics": plan["metrics"]}
+        append_execution_event(manifest, "team_plan_applied", affected_count=len(plan["assignments"]))
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Optimized manifest is invalid: " + "; ".join(errors))
@@ -394,6 +400,8 @@ def _cmd_migrate(args: argparse.Namespace) -> int:
     if args.manifest.expanduser().resolve() == args.output.expanduser().resolve():
         raise ValueError("Migration output must be a different path; the source manifest is preserved")
     migrated = migrate_manifest(source, CURRENT_MANIFEST_VERSION)
+    if source["schema_version"] != CURRENT_MANIFEST_VERSION and not args.dry_run:
+        append_execution_event(migrated, "manifest_migrated", source_version=source["schema_version"])
     errors = validate_manifest(migrated)
     if errors:
         raise ValueError("Migrated manifest is invalid: " + "; ".join(errors))
@@ -456,6 +464,8 @@ def _cmd_resolve_dependencies(args: argparse.Namespace) -> int:
         for prerequisite in assignment.get("prerequisites", [])
         if (assignment["id"], prerequisite) not in resolved
     ]
+    if args.apply and added:
+        append_execution_event(manifest, "dependency_resolution_applied", affected_count=len(added))
     errors = validate_manifest(manifest)
     if errors:
         raise ValueError("Dependency graph is invalid: " + "; ".join(errors))
@@ -545,6 +555,10 @@ def _cmd_record_verification(args: argparse.Namespace) -> int:
     if errors:
         raise ValueError("Capability verification update is invalid: " + "; ".join(errors))
     if args.apply:
+        append_execution_event(manifest, "capability_verification_applied", affected_count=len(updated))
+        errors = validate_manifest(manifest)
+        if errors:
+            raise ValueError("Capability verification update is invalid: " + "; ".join(errors))
         message = _save_manifest(args.manifest, manifest, expected_sha256=manifest_sha256, dry_run=args.dry_run)
     else:
         message = "Preview only; pass --apply to record these verification results."
@@ -621,6 +635,7 @@ def _cmd_record_result(args: argparse.Namespace) -> int:
                 errors.append(f"accepted output {output['path']!r} does not exist")
     if errors:
         raise ValueError("Agent result cannot be recorded: " + "; ".join(errors))
+    previous_review_status = existing["review_status"] if existing else None
     if existing:
         existing.update({"review_status": args.review, "reviewed_at": now_utc(), "reviewer": args.reviewer})
         if args.review_notes:
@@ -639,6 +654,21 @@ def _cmd_record_result(args: argparse.Namespace) -> int:
         })
         action = "append"
     manifest["discovery"]["updated_at"] = now_utc()
+    if args.apply:
+        if existing:
+            append_execution_event(
+                manifest, "agent_result_reviewed", assignment_id=assignment_id,
+                result_id=result["result_id"], previous_review_status=previous_review_status,
+                review_status=args.review,
+            )
+        else:
+            append_execution_event(manifest, "agent_result_recorded", assignment_id=assignment_id, result_id=result["result_id"])
+            if args.review != "pending":
+                append_execution_event(
+                    manifest, "agent_result_reviewed", assignment_id=assignment_id,
+                    result_id=result["result_id"], previous_review_status="pending",
+                    review_status=args.review,
+                )
     validation_errors = validate_manifest(manifest)
     if validation_errors:
         raise ValueError("Updated manifest is invalid: " + "; ".join(validation_errors))
@@ -710,6 +740,7 @@ def _cmd_estimate(args: argparse.Namespace) -> int:
         manifest["cost_estimate"]["total_amount"] = sum(item["amount"] for item in other_items) if other_items and all(item["amount"] is not None for item in other_items) else None
         manifest["cost_estimate"]["assumptions"] = list(dict.fromkeys([*manifest["cost_estimate"]["assumptions"], estimate["method"], result["cost_basis"]]))
         manifest["discovery"]["updated_at"] = now_utc()
+        append_execution_event(manifest, "estimate_applied")
         errors = validate_manifest(manifest)
         if errors:
             raise ValueError("Updated manifest is invalid: " + "; ".join(errors))

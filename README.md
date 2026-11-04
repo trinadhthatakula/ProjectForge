@@ -66,29 +66,31 @@ python3 scripts/projectforge.py render /path/to/projectforge.json \
   --output-dir /path/to/kickoff --format both --dry-run
 ```
 
-New manifests use schema version `1.2.0`. Versions `1.0.0` and `1.1.0` remain supported. Migrate an older manifest to a new file; ProjectForge validates both the source and migrated result and does not rewrite the source. Migration marks earlier capability matches unverified and downgrades a previously ready manifest until required capabilities are checked:
+New manifests use schema version `1.3.0`. Versions `1.0.0` through `1.2.0` remain supported. Migrate an older manifest to a new file; ProjectForge validates both the source and migrated result and does not rewrite the source. When migrating 1.0.0 or 1.1.0 manifests, earlier capability matches become unverified and a previously ready manifest is downgraded until required capabilities are checked. Version 1.3.0 adds a metadata-only event history for ProjectForge CLI mutations and result review transitions:
 
 ```sh
 python3 scripts/projectforge.py migrate /path/to/projectforge.json \
-  --output /path/to/projectforge-1.2.json
+  --output /path/to/projectforge-1.3.json
 ```
 
 Resolve selected-role prerequisites only after the supervisor confirms the provider assignment and relationship. The JSON input is an array following `schemas/dependency-resolution.schema.json`; `blocks` and `reviews` edges sequence work, while `informs` edges preserve parallel scheduling.
 
 ```sh
 python3 scripts/projectforge.py resolve-dependencies \
-  /path/to/projectforge-1.2.json /path/to/resolutions.json --apply
+  /path/to/projectforge-1.3.json /path/to/resolutions.json --apply
 ```
 
 Provider results use `schemas/agent-result.schema.json`, independent of model provider. Before dispatch, set each assignment's allowed paths, protected paths, and required checks. A path ending in `/` covers that directory and its descendants; other paths match exactly. Validate results before review; accepted results must pass the required checks and point to existing project-local outputs. Keep every retry in a separate result file and link it to the previous rejected or rework-required attempt.
 
 ```sh
 python3 scripts/projectforge.py validate-result \
-  /path/to/projectforge-1.2.json /path/to/.projectforge/results/result-001.json
+  /path/to/projectforge-1.3.json /path/to/.projectforge/results/result-001.json
 python3 scripts/projectforge.py record-result \
-  /path/to/projectforge-1.2.json /path/to/.projectforge/results/result-001.json \
+  /path/to/projectforge-1.3.json /path/to/.projectforge/results/result-001.json \
   --review accepted --reviewer supervisor --apply
 ```
+
+Applied CLI changes append structured events to `execution.events`. Event entries keep identifiers, operation types, review states, and aggregate counts; they do not copy result evidence, review notes, or verification text. Secret-like identifiers are rejected. Treat this list as append-only when editing manifests by hand.
 
 See `examples/` for Android, web SaaS, Python automation, and cross-platform manifests. GitHub Actions validates schemas and examples, runs the CLI smoke workflow, and runs the automated suite on Python 3.11–3.13. To run the suite locally:
 
@@ -107,7 +109,7 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
 
 - `SKILL.md` contains the provider-neutral shared workflow and key constraints. `agents/openai.yaml` is optional display metadata for hosts that use it; it does not change the skill's supported runtimes.
 - `references/roles.json` contains the specialist catalogue and links each built-in role to its focused guide under `references/role-guides/`; other references explain discovery, architecture, and runtime limits.
-- `schemas/` defines versioned project manifests, capability verification, role profiles, assignment contracts, dependency resolutions, and provider-neutral agent results.
+- `schemas/` defines versioned project manifests, execution events, capability verification, role profiles, assignment contracts, dependency resolutions, and provider-neutral agent results.
 - `scripts/` implements deterministic operations. It reads skill metadata and agent configuration but never executes discovered scripts.
 - `templates/` holds document framing; renderers fill both formats from the same manifest.
 - `examples/` are complete manifests. `tests/` exercise CLI behavior and safety invariants.

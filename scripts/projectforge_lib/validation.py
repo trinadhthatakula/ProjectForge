@@ -5,7 +5,7 @@ from pathlib import PurePosixPath
 from typing import Any
 
 from .common import read_json, skill_root
-from .migrations import SUPPORTED_MANIFEST_VERSIONS
+from .migrations import CURRENT_MANIFEST_VERSION, SUPPORTED_MANIFEST_VERSIONS
 from .verification import derive_verification_status, verification_errors
 
 
@@ -141,7 +141,7 @@ def _readiness_gate_errors(manifest: dict[str, Any]) -> list[str]:
             errors.append(f"readiness.status cannot be 'ready' while open assumption {assumption['id']!r} lacks an owner or validation action")
 
     capability_rows = manifest["capability_report"]["role_matches"]
-    uses_verification = manifest.get("schema_version") == "1.2.0"
+    uses_verification = manifest.get("schema_version") in {"1.2.0", CURRENT_MANIFEST_VERSION}
     team_role_ids = {item["role_id"] for item in [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]}
     reported_role_ids = {item["role_id"] for item in capability_rows}
     if not capability_rows:
@@ -184,7 +184,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     version = manifest.get("schema_version") if isinstance(manifest, dict) else None
     if version not in SUPPORTED_MANIFEST_VERSIONS:
         return [f"Unsupported manifest schema_version {version!r}; supported versions: {', '.join(sorted(SUPPORTED_MANIFEST_VERSIONS))}. Use 'migrate' for a supported older manifest."]
-    schema_name = "project-manifest.schema.json" if version == "1.2.0" else f"project-manifest-{version}.schema.json"
+    schema_name = "project-manifest.schema.json" if version == CURRENT_MANIFEST_VERSION else f"project-manifest-{version}.schema.json"
     errors = _schema_errors(manifest, skill_root() / "schemas" / schema_name)
     if errors:
         return errors
@@ -216,6 +216,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
             errors.append(f"assignment {assignment['id']!r} result_contract.required_checks contains duplicates")
     assignment_ids = {item["id"] for item in assignments}
     execution_results = manifest.get("execution", {}).get("results", [])
+    execution_events = manifest.get("execution", {}).get("events", [])
     seen_result_ids: dict[str, dict[str, Any]] = {}
     seen_result_files: set[str] = set()
     seen_attempts: set[tuple[str, int]] = set()
@@ -253,6 +254,19 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
                 errors.append(f"execution result {result_id!r} retries an attempt without a rejected or rework_required review")
         seen_result_ids[result_id] = result
         seen_result_files.add(result_file)
+    seen_event_ids: set[str] = set()
+    known_result_ids = {item["result_id"] for item in execution_results}
+    for index, event in enumerate(execution_events):
+        event_id = event["event_id"]
+        if event_id in seen_event_ids:
+            errors.append(f"execution.events[{index}].event_id duplicates {event_id!r}")
+        seen_event_ids.add(event_id)
+        assignment_id = event.get("assignment_id")
+        if assignment_id is not None and assignment_id not in assignment_ids:
+            errors.append(f"execution event {event_id!r} refers to unknown assignment_id {assignment_id!r}")
+        result_id = event.get("result_id")
+        if result_id is not None and result_id not in known_result_ids:
+            errors.append(f"execution event {event_id!r} refers to unknown result_id {result_id!r}")
     dependency_edges: list[tuple[str, str]] = []
     seen_dependency_edges: set[tuple[str, str, str]] = set()
     for assignment in assignments:
@@ -324,7 +338,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     for field in ("deliverables", "risks", "assumptions", "decisions"):
         errors.extend(_check_unique_ids(manifest[field], field))
     # The manifest schema embeds the matching assignment version. Apply the standalone current contract only to current manifests.
-    if version in {"1.1.0", "1.2.0"}:
+    if version in {"1.1.0", "1.2.0", CURRENT_MANIFEST_VERSION}:
         try:
             from jsonschema import Draft202012Validator
         except ImportError as exc:
@@ -335,7 +349,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
         for assignment in assignments:
             for error in assignment_validator.iter_errors(assignment):
                 errors.append(f"assignment {assignment['id']}.{'.'.join(str(x) for x in error.absolute_path)}: {error.message}")
-    if version == "1.2.0":
+    if version in {"1.2.0", CURRENT_MANIFEST_VERSION}:
         for role in manifest["capability_report"]["role_matches"]:
             for requirement in role["requirements"]:
                 verification = requirement["verification"]

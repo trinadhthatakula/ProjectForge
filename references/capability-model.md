@@ -79,7 +79,7 @@ ProjectForge derives the overall verification status from the checks:
 
 The result is tied to one manifest role requirement. Running `match` again replaces its capability report and clears prior verification; record verification again against the refreshed inventory. Repeated, task-specific permissions or output assumptions should be checked for each project.
 
-In manifest version `1.2.0`, a required capability must be `verified` before readiness can be `ready`. Remediation plans can record an owner and next action, but they do not convert an unverified capability into a verified one. Optional capability gaps remain visible without blocking readiness.
+In manifest versions `1.2.0` and later, a required capability must be `verified` before readiness can be `ready`. Remediation plans can record an owner and next action, but they do not convert an unverified capability into a verified one. Optional capability gaps remain visible without blocking readiness.
 
 ## Reporting and recommendations
 

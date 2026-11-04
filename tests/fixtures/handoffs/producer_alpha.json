@@ -1,0 +1,36 @@
+{
+  "protocol_version": "1.0.0",
+  "result_id": "fixture-alpha-result",
+  "assignment_id": "android-engineer",
+  "manifest_version": "1.3.0",
+  "status": "validated",
+  "summary": "Implemented the fixture authentication module.",
+  "outputs": [
+    {
+      "path": "src/auth-alpha.py",
+      "description": "Fixture authentication module"
+    }
+  ],
+  "evidence": [
+    "Offline fixture evidence"
+  ],
+  "validation": {
+    "passed": true,
+    "checks": [
+      {
+        "name": "Unit tests",
+        "status": "passed",
+        "evidence": [
+          "Fixture check passed"
+        ]
+      }
+    ]
+  },
+  "unresolved_questions": [],
+  "risks": [],
+  "assumptions": [],
+  "handoff_notes": "Offline provider-neutral contract fixture.",
+  "attempt": 1,
+  "prior_result_id": null,
+  "created_at": "2026-11-05T00:00:00Z"
+}

@@ -32,3 +32,9 @@ The GitHub Actions workflow also validates all JSON schemas and example manifest
 Describe the problem, the change, and any compatibility or security impact. Link related issues when applicable. Keep each pull request reviewable and respond to requested changes in follow-up commits.
 
 By submitting a contribution, you agree that it may be distributed under the project's [GNU GPL version 3 or any later version](LICENSE). You retain copyright in your contribution.
+
+## Changelog and releases
+
+Add user-visible changes to [CHANGELOG.md](CHANGELOG.md) under `Unreleased`. Before a release, move those entries under the release version and date, check that the supported Python versions and manifest migration notes are accurate, and run the CI workflow.
+
+Before changing the current manifest schema, copy it to `schemas/project-manifest-VERSION.schema.json` and keep an explicit migration path from that version. For a release, create an annotated tag named `vMAJOR.MINOR.PATCH` on the reviewed commit, then publish GitHub release notes from the matching changelog section. Do not retarget or reuse a published version tag.
