@@ -1,0 +1,479 @@
+{
+  "schema_version": "1.0.0",
+  "project": {
+    "id": "archive-tidy",
+    "name": "Archive Tidy",
+    "summary": "Operations staff need a safe command-line tool to find duplicate archive files and produce a reviewable cleanup plan.",
+    "problem_statement": "Operations staff need a safe command-line tool to find duplicate archive files and produce a reviewable cleanup plan.",
+    "target_audience": [
+      "Project users and operators"
+    ],
+    "goals": [
+      "Identify duplicate files by content hash",
+      "Preview cleanup actions before any deletion",
+      "Produce a machine-readable report"
+    ],
+    "classification": "automation",
+    "platforms": [
+      "Python CLI"
+    ],
+    "identifiers": [],
+    "scope": {
+      "included": [],
+      "excluded": []
+    },
+    "existing_repository": {
+      "path": null,
+      "inspected": false,
+      "observations": []
+    }
+  },
+  "discovery": {
+    "mode": "standard",
+    "started_at": "2026-11-04T14:00:47Z",
+    "updated_at": "2026-11-04T14:00:47Z",
+    "notes": []
+  },
+  "facts": [
+    {
+      "id": "problem",
+      "topic": "Problem statement",
+      "value": "Operations staff need a safe command-line tool to find duplicate archive files and produce a reviewable cleanup plan.",
+      "status": "confirmed",
+      "source": "Example fixture",
+      "rationale": "Representative project brief."
+    },
+    {
+      "id": "platforms",
+      "topic": "Platforms",
+      "value": [
+        "Python CLI"
+      ],
+      "status": "confirmed",
+      "source": "Example fixture",
+      "rationale": "Representative platform scope."
+    }
+  ],
+  "technology": {
+    "preferences": [
+      "Python 3.12 or user-selected supported version",
+      "Typer or argparse",
+      "pytest"
+    ],
+    "selected": [
+      "Python 3.12 or user-selected supported version",
+      "Typer or argparse",
+      "pytest"
+    ],
+    "alternatives": [],
+    "compatibility_evidence": []
+  },
+  "features": [
+    {
+      "id": "scan-folders",
+      "name": "Scan folders",
+      "description": "Scan folders",
+      "priority": "must",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The scan reports unreadable files without stopping the run",
+        "Files are matched by content hash"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "preview-plan",
+      "name": "Preview cleanup plan",
+      "description": "Preview cleanup plan",
+      "priority": "must",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Dry run never changes files",
+        "Each proposed deletion links to a retained copy"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "json-report",
+      "name": "JSON report",
+      "description": "JSON report",
+      "priority": "should",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "The report validates against the documented output schema"
+      ],
+      "depends_on": []
+    }
+  ],
+  "architecture": {
+    "summary": "Example architecture outline; validate choices against project requirements and current platform documentation.",
+    "components": [
+      {
+        "id": "cli",
+        "name": "CLI interface",
+        "description": "Parses options and reports scan status"
+      },
+      {
+        "id": "scanner",
+        "name": "Hash scanner",
+        "description": "Reads files and groups identical contents"
+      },
+      {
+        "id": "planner",
+        "name": "Cleanup planner",
+        "description": "Produces deterministic proposed actions"
+      },
+      {
+        "id": "json-writer",
+        "name": "Report writer",
+        "description": "Writes escaped, versioned JSON"
+      }
+    ],
+    "flows": [
+      {
+        "from": "cli",
+        "to": "scanner",
+        "label": "scan request"
+      },
+      {
+        "from": "scanner",
+        "to": "planner",
+        "label": "duplicate groups"
+      },
+      {
+        "from": "planner",
+        "to": "json-writer",
+        "label": "dry-run plan"
+      }
+    ]
+  },
+  "data_api": {
+    "datastores": [
+      "Local filesystem"
+    ],
+    "apis": [],
+    "authentication": [],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "question": "Default behavior for symbolic links",
+        "status": "pending",
+        "owner": "Product owner",
+        "options": [
+          "Skip links",
+          "Follow links within root only"
+        ],
+        "selected": null,
+        "rationale": "Choose a safe policy and add fixtures for loops and escaping links."
+      }
+    ]
+  },
+  "constraints": {
+    "security_privacy": [
+      "Never delete without an explicit apply command",
+      "Refuse paths outside the selected root unless confirmed"
+    ],
+    "offline": "Must work fully offline.",
+    "monetization": "",
+    "performance": [
+      "Stream large files when hashing"
+    ],
+    "accessibility": [
+      "Clear CLI errors and machine-readable exit codes"
+    ],
+    "localization": [],
+    "deployment": [],
+    "budget": ""
+  },
+  "capability_report": {
+    "generated_at": "2026-11-04T14:07:00Z",
+    "runtime": {
+      "name": "example fixture",
+      "detected": false,
+      "version": null,
+      "session_availability": "unverified",
+      "evidence": [
+        "No current runtime inspection is embedded in this fixture."
+      ],
+      "session_inventory_complete": false
+    },
+    "skills": [],
+    "agents": [],
+    "tools": [],
+    "role_matches": [
+      {
+        "role_id": "supervisor",
+        "requirements": [
+          {
+            "capability": "project synthesis",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "risk and dependency management",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      },
+      {
+        "role_id": "python-engineer",
+        "requirements": [
+          {
+            "capability": "Python engineering",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "packaging and environments",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      }
+    ],
+    "gaps": [
+      "supervisor: project synthesis is unverified",
+      "supervisor: risk and dependency management is unverified",
+      "python-engineer: Python engineering is unverified",
+      "python-engineer: packaging and environments is unverified"
+    ]
+  },
+  "team": {
+    "approval_status": "proposed",
+    "supervisor": {
+      "id": "supervisor",
+      "role_id": "supervisor",
+      "name": "Supervisor / Technical Lead",
+      "mission": "Own the canonical project specification and coordinate delivery.",
+      "responsibilities": [
+        "Resolve conflicting recommendations",
+        "Maintain scope, manifest, milestones, risks, and decisions"
+      ],
+      "exclusions": [
+        "Does not own every implementation workstream",
+        "Does not present assumptions as verified facts"
+      ],
+      "inputs": [
+        "Accepted project manifest and relevant repository evidence",
+        "Prerequisite: Receives findings from all specialists",
+        "Prerequisite: Architecture and product choices precede implementation assignments"
+      ],
+      "outputs": [
+        "authoritative project specification",
+        "team plan",
+        "decision and risk registers"
+      ],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "All work has an owner and handoff",
+        "manifest and generated docs agree"
+      ],
+      "handoff_requirements": [
+        "Give bounded briefs with inputs, outputs, and acceptance criteria",
+        "Return unresolved user-owned decisions to the user"
+      ],
+      "required_capabilities": [
+        "project synthesis",
+        "risk and dependency management"
+      ],
+      "supporting_skills": [
+        "project planning",
+        "architecture",
+        "decision records"
+      ]
+    },
+    "specialists": [
+      {
+        "id": "python-engineer",
+        "role_id": "python-engineer",
+        "name": "Python Engineer",
+        "mission": "Plan Python applications, automation, and libraries.",
+        "responsibilities": [
+          "Recommend package and module structure",
+          "Identify runtime, distribution, and failure handling concerns"
+        ],
+        "exclusions": [
+          "Does not run arbitrary third-party scripts",
+          "Does not assume package compatibility"
+        ],
+        "inputs": [
+          "Accepted project manifest and relevant repository evidence",
+          "Prerequisite: API",
+          "Prerequisite: storage",
+          "Prerequisite: scheduler contract"
+        ],
+        "outputs": [
+          "package or automation design",
+          "dependency and environment plan",
+          "execution safety notes"
+        ],
+        "dependencies": [],
+        "acceptance_criteria": [
+          "Fresh environment setup is reproducible",
+          "failure and retry behavior is specified"
+        ],
+        "handoff_requirements": [
+          "Coordinate interfaces with backend and data roles",
+          "Agree test strategy with QA"
+        ],
+        "required_capabilities": [
+          "Python engineering",
+          "packaging and environments"
+        ],
+        "supporting_skills": [
+          "python",
+          "automation",
+          "cli",
+          "package",
+          "asyncio"
+        ]
+      }
+    ],
+    "rationale": [
+      "Python Engineer: project signal matches 'python'; project signal matches 'cli'",
+      "Kept the team small because the current project signals do not establish independent work for more specialists."
+    ],
+    "optimization": {
+      "mode": "standard",
+      "coordination_score": 3.69,
+      "estimated_input_tokens": 4840,
+      "estimated_output_tokens": 2950,
+      "handoffs": 0,
+      "metrics": {
+        "role_relevance": [
+          {
+            "role_id": "python-engineer",
+            "score": 5.0,
+            "signals": [
+              "project signal matches 'python'",
+              "project signal matches 'cli'"
+            ]
+          }
+        ],
+        "role_overlap": {
+          "pair_count": 0,
+          "pairs": []
+        },
+        "workstream_independence": {
+          "score": 1.0,
+          "basis": "1 minus overlapping role pairs divided by all possible specialist pairs; a one-role team scores 1.0."
+        },
+        "coordination_overhead": {
+          "score": 3.69,
+          "handoffs": 0,
+          "basis": "Team-size, handoff, and project-complexity planning heuristic; lower is simpler."
+        },
+        "context_requirements": {
+          "estimated_input_tokens": 4840,
+          "project_complexity_units": 7,
+          "per_role": [
+            {
+              "role_id": "python-engineer",
+              "required_capability_count": 5,
+              "deliverable_count": 3,
+              "research_method_count": 2,
+              "estimated_input_tokens": 1500
+            }
+          ],
+          "basis": "Planning estimate uses 2,500 supervisor input tokens, 1,500 per specialist, and 120 per feature or architecture component."
+        },
+        "research_complexity": {
+          "score": 3.0,
+          "research_method_count": 2,
+          "basis": "Average number of catalogue research methods per selected role, multiplied by 1.5 and capped at 10."
+        },
+        "integration_complexity": {
+          "score": 2.75,
+          "basis": "Heuristic: 1 + 0.75 per specialist + 0.8 per overlap pair + 0.6 per manifest dependency + 0.25 per architecture component, capped at 10."
+        },
+        "handoffs": 0,
+        "expected_review_effort_points": 5.0,
+        "review_effort_basis": "Uncalibrated points: 2 supervisor points, 1 per specialist, 0.5 per catalogue deliverable, and 0.25 per acceptance criterion."
+      }
+    },
+    "selection_mode": "dynamic"
+  },
+  "dependencies": [],
+  "deliverables": [
+    {
+      "id": "kickoff-spec",
+      "name": "Accepted project kickoff specification",
+      "owner": "Supervisor / Technical Lead",
+      "acceptance_criteria": [
+        "Open decisions and risks are visible",
+        "Manifest validates and generated documents agree"
+      ],
+      "status": "planned"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "discovery",
+      "name": "Discovery and architecture decisions",
+      "target": "Before implementation",
+      "depends_on": []
+    },
+    {
+      "id": "implementation",
+      "name": "Implementation and verification",
+      "target": "After discovery acceptance",
+      "depends_on": [
+        "discovery"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "risk-1",
+      "description": "Incorrect deduplication could delete the only needed copy",
+      "likelihood": "high",
+      "impact": "high",
+      "mitigation": "Use content hashes, dry-run by default, and require explicit confirmation for destructive writes",
+      "owner": "Python Engineer"
+    }
+  ],
+  "assumptions": [],
+  "decisions": [],
+  "cost_estimate": {
+    "currency": "UNSPECIFIED",
+    "total_amount": null,
+    "confidence": "unknown",
+    "items": [],
+    "token_estimate": {
+      "input": 0,
+      "output": 0,
+      "method": "Not estimated."
+    },
+    "assumptions": []
+  },
+  "output_preferences": {
+    "formats": [
+      "markdown",
+      "html"
+    ],
+    "include_architecture_diagram": true,
+    "include_team_contracts": true
+  },
+  "readiness": {
+    "status": "needs_input",
+    "blockers": [
+      "Resolve the pending project decisions and verify architecture/dependency compatibility."
+    ],
+    "checked_at": "2026-11-04T14:00:47Z"
+  },
+  "change_log": [],
+  "extensions": {}
+}

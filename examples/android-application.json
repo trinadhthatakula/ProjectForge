@@ -1,0 +1,458 @@
+{
+  "schema_version": "1.0.0",
+  "project": {
+    "id": "pocket-garden",
+    "name": "Pocket Garden",
+    "summary": "Apartment gardeners need reliable care reminders and a simple record of plant health.",
+    "problem_statement": "Apartment gardeners need reliable care reminders and a simple record of plant health.",
+    "target_audience": [
+      "Project users and operators"
+    ],
+    "goals": [
+      "Reduce missed watering and feeding tasks",
+      "Keep plant notes available offline"
+    ],
+    "classification": "mobile_app",
+    "platforms": [
+      "Android"
+    ],
+    "identifiers": [],
+    "scope": {
+      "included": [],
+      "excluded": []
+    },
+    "existing_repository": {
+      "path": null,
+      "inspected": false,
+      "observations": []
+    }
+  },
+  "discovery": {
+    "mode": "standard",
+    "started_at": "2026-11-04T14:00:47Z",
+    "updated_at": "2026-11-04T14:00:47Z",
+    "notes": []
+  },
+  "facts": [
+    {
+      "id": "problem",
+      "topic": "Problem statement",
+      "value": "Apartment gardeners need reliable care reminders and a simple record of plant health.",
+      "status": "confirmed",
+      "source": "Example fixture",
+      "rationale": "Representative project brief."
+    },
+    {
+      "id": "platforms",
+      "topic": "Platforms",
+      "value": [
+        "Android"
+      ],
+      "status": "confirmed",
+      "source": "Example fixture",
+      "rationale": "Representative platform scope."
+    }
+  ],
+  "technology": {
+    "preferences": [
+      "Kotlin",
+      "Jetpack Compose",
+      "Room",
+      "WorkManager"
+    ],
+    "selected": [
+      "Kotlin",
+      "Jetpack Compose",
+      "Room",
+      "WorkManager"
+    ],
+    "alternatives": [],
+    "compatibility_evidence": []
+  },
+  "features": [
+    {
+      "id": "care-reminders",
+      "name": "Care reminders",
+      "description": "Care reminders",
+      "priority": "must",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A reminder can be scheduled and rescheduled per plant",
+        "Missed reminder state is visible"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "plant-notes",
+      "name": "Plant notes",
+      "description": "Plant notes",
+      "priority": "should",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A user can add and edit dated care notes"
+      ],
+      "depends_on": []
+    }
+  ],
+  "architecture": {
+    "summary": "Example architecture outline; validate choices against project requirements and current platform documentation.",
+    "components": [
+      {
+        "id": "compose-ui",
+        "name": "Android UI",
+        "description": "Shows plant lists, care plans, and notes"
+      },
+      {
+        "id": "room-store",
+        "name": "Local data store",
+        "description": "Stores plant profiles and care history"
+      },
+      {
+        "id": "reminder-worker",
+        "name": "Reminder scheduler",
+        "description": "Schedules local care reminders"
+      }
+    ],
+    "flows": [
+      {
+        "from": "compose-ui",
+        "to": "room-store",
+        "label": "read and update plant records"
+      },
+      {
+        "from": "room-store",
+        "to": "reminder-worker",
+        "label": "provide reminder schedule"
+      }
+    ]
+  },
+  "data_api": {
+    "datastores": [
+      "Room local database"
+    ],
+    "apis": [],
+    "authentication": [],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "question": "Notification permission strategy",
+        "status": "pending",
+        "owner": "Product owner",
+        "options": [
+          "Request when first reminder is created",
+          "Offer reminders without system notification"
+        ],
+        "selected": null,
+        "rationale": "Verify current Android notification behavior and target SDK policy."
+      }
+    ]
+  },
+  "constraints": {
+    "security_privacy": [
+      "Keep personal plant notes on device by default"
+    ],
+    "offline": "Plant records and reminders must work without network access.",
+    "monetization": "",
+    "performance": [],
+    "accessibility": [
+      "TalkBack labels for plant actions",
+      "Text scaling without clipped care details"
+    ],
+    "localization": [],
+    "deployment": [],
+    "budget": ""
+  },
+  "capability_report": {
+    "generated_at": "2026-11-04T14:07:00Z",
+    "runtime": {
+      "name": "example fixture",
+      "detected": false,
+      "version": null,
+      "session_availability": "unverified",
+      "evidence": [
+        "No current runtime inspection is embedded in this fixture."
+      ],
+      "session_inventory_complete": false
+    },
+    "skills": [],
+    "agents": [],
+    "tools": [],
+    "role_matches": [
+      {
+        "role_id": "supervisor",
+        "requirements": [
+          {
+            "capability": "project synthesis",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "risk and dependency management",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      },
+      {
+        "role_id": "android-engineer",
+        "requirements": [
+          {
+            "capability": "Android platform knowledge",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "Kotlin architecture",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      }
+    ],
+    "gaps": [
+      "supervisor: project synthesis is unverified",
+      "supervisor: risk and dependency management is unverified",
+      "android-engineer: Android platform knowledge is unverified",
+      "android-engineer: Kotlin architecture is unverified"
+    ]
+  },
+  "team": {
+    "approval_status": "proposed",
+    "supervisor": {
+      "id": "supervisor",
+      "role_id": "supervisor",
+      "name": "Supervisor / Technical Lead",
+      "mission": "Own the canonical project specification and coordinate delivery.",
+      "responsibilities": [
+        "Resolve conflicting recommendations",
+        "Maintain scope, manifest, milestones, risks, and decisions"
+      ],
+      "exclusions": [
+        "Does not own every implementation workstream",
+        "Does not present assumptions as verified facts"
+      ],
+      "inputs": [
+        "Accepted project manifest and relevant repository evidence",
+        "Prerequisite: Receives findings from all specialists",
+        "Prerequisite: Architecture and product choices precede implementation assignments"
+      ],
+      "outputs": [
+        "authoritative project specification",
+        "team plan",
+        "decision and risk registers"
+      ],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "All work has an owner and handoff",
+        "manifest and generated docs agree"
+      ],
+      "handoff_requirements": [
+        "Give bounded briefs with inputs, outputs, and acceptance criteria",
+        "Return unresolved user-owned decisions to the user"
+      ],
+      "required_capabilities": [
+        "project synthesis",
+        "risk and dependency management"
+      ],
+      "supporting_skills": [
+        "project planning",
+        "architecture",
+        "decision records"
+      ]
+    },
+    "specialists": [
+      {
+        "id": "android-engineer",
+        "role_id": "android-engineer",
+        "name": "Android Engineer",
+        "mission": "Plan Android application architecture and implementation constraints.",
+        "responsibilities": [
+          "Recommend module and UI architecture",
+          "Identify APIs, permissions, lifecycle, compatibility, and release requirements"
+        ],
+        "exclusions": [
+          "Does not claim device behavior from a manifest alone",
+          "Does not own product scope or backend implementation"
+        ],
+        "inputs": [
+          "Accepted project manifest and relevant repository evidence",
+          "Prerequisite: product requirements",
+          "Prerequisite: backend API contract"
+        ],
+        "outputs": [
+          "Android architecture plan",
+          "permission and platform matrix",
+          "build validation plan"
+        ],
+        "dependencies": [],
+        "acceptance_criteria": [
+          "Plan matches supported project SDKs",
+          "platform risks have verification steps"
+        ],
+        "handoff_requirements": [
+          "Coordinate API needs with backend and security",
+          "Coordinate acceptance coverage with QA"
+        ],
+        "required_capabilities": [
+          "Android platform knowledge",
+          "Kotlin architecture"
+        ],
+        "supporting_skills": [
+          "android",
+          "kotlin",
+          "compose",
+          "gradle",
+          "android cli",
+          "testing"
+        ]
+      }
+    ],
+    "rationale": [
+      "Android Engineer: project signal matches 'android'; project signal matches 'kotlin'; project signal matches 'jetpack compose'; selected platform is Android",
+      "Kept the team small because the current project signals do not establish independent work for more specialists."
+    ],
+    "optimization": {
+      "mode": "standard",
+      "coordination_score": 3.39,
+      "estimated_input_tokens": 4600,
+      "estimated_output_tokens": 2950,
+      "handoffs": 0,
+      "metrics": {
+        "role_relevance": [
+          {
+            "role_id": "android-engineer",
+            "score": 10.0,
+            "signals": [
+              "project signal matches 'android'",
+              "project signal matches 'kotlin'",
+              "project signal matches 'jetpack compose'",
+              "selected platform is Android"
+            ]
+          }
+        ],
+        "role_overlap": {
+          "pair_count": 0,
+          "pairs": []
+        },
+        "workstream_independence": {
+          "score": 1.0,
+          "basis": "1 minus overlapping role pairs divided by all possible specialist pairs; a one-role team scores 1.0."
+        },
+        "coordination_overhead": {
+          "score": 3.39,
+          "handoffs": 0,
+          "basis": "Team-size, handoff, and project-complexity planning heuristic; lower is simpler."
+        },
+        "context_requirements": {
+          "estimated_input_tokens": 4600,
+          "project_complexity_units": 5,
+          "per_role": [
+            {
+              "role_id": "android-engineer",
+              "required_capability_count": 5,
+              "deliverable_count": 3,
+              "research_method_count": 2,
+              "estimated_input_tokens": 1500
+            }
+          ],
+          "basis": "Planning estimate uses 2,500 supervisor input tokens, 1,500 per specialist, and 120 per feature or architecture component."
+        },
+        "research_complexity": {
+          "score": 3.0,
+          "research_method_count": 2,
+          "basis": "Average number of catalogue research methods per selected role, multiplied by 1.5 and capped at 10."
+        },
+        "integration_complexity": {
+          "score": 2.5,
+          "basis": "Heuristic: 1 + 0.75 per specialist + 0.8 per overlap pair + 0.6 per manifest dependency + 0.25 per architecture component, capped at 10."
+        },
+        "handoffs": 0,
+        "expected_review_effort_points": 5.0,
+        "review_effort_basis": "Uncalibrated points: 2 supervisor points, 1 per specialist, 0.5 per catalogue deliverable, and 0.25 per acceptance criterion."
+      }
+    },
+    "selection_mode": "dynamic"
+  },
+  "dependencies": [],
+  "deliverables": [
+    {
+      "id": "kickoff-spec",
+      "name": "Accepted project kickoff specification",
+      "owner": "Supervisor / Technical Lead",
+      "acceptance_criteria": [
+        "Open decisions and risks are visible",
+        "Manifest validates and generated documents agree"
+      ],
+      "status": "planned"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "discovery",
+      "name": "Discovery and architecture decisions",
+      "target": "Before implementation",
+      "depends_on": []
+    },
+    {
+      "id": "implementation",
+      "name": "Implementation and verification",
+      "target": "After discovery acceptance",
+      "depends_on": [
+        "discovery"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "risk-1",
+      "description": "OEM background limits may delay reminders",
+      "likelihood": "medium",
+      "impact": "medium",
+      "mitigation": "Test scheduled work on representative devices and document limits",
+      "owner": "Android Engineer"
+    }
+  ],
+  "assumptions": [],
+  "decisions": [],
+  "cost_estimate": {
+    "currency": "UNSPECIFIED",
+    "total_amount": null,
+    "confidence": "unknown",
+    "items": [],
+    "token_estimate": {
+      "input": 0,
+      "output": 0,
+      "method": "Not estimated."
+    },
+    "assumptions": []
+  },
+  "output_preferences": {
+    "formats": [
+      "markdown",
+      "html"
+    ],
+    "include_architecture_diagram": true,
+    "include_team_contracts": true
+  },
+  "readiness": {
+    "status": "needs_input",
+    "blockers": [
+      "Resolve the pending project decisions and verify architecture/dependency compatibility."
+    ],
+    "checked_at": "2026-11-04T14:00:47Z"
+  },
+  "change_log": [],
+  "extensions": {}
+}

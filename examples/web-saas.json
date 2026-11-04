@@ -1,0 +1,767 @@
+{
+  "schema_version": "1.0.0",
+  "project": {
+    "id": "fieldnote-workspace",
+    "name": "Fieldnote Workspace",
+    "summary": "Small field teams need a shared workspace for visit notes, assignments, and customer follow-up.",
+    "problem_statement": "Small field teams need a shared workspace for visit notes, assignments, and customer follow-up.",
+    "target_audience": [
+      "Project users and operators"
+    ],
+    "goals": [
+      "Capture visit notes from desktop and mobile browsers",
+      "Track team assignments and follow-up status"
+    ],
+    "classification": "saas",
+    "platforms": [
+      "Web"
+    ],
+    "identifiers": [],
+    "scope": {
+      "included": [],
+      "excluded": []
+    },
+    "existing_repository": {
+      "path": null,
+      "inspected": false,
+      "observations": []
+    }
+  },
+  "discovery": {
+    "mode": "standard",
+    "started_at": "2026-11-04T14:00:47Z",
+    "updated_at": "2026-11-04T14:00:47Z",
+    "notes": []
+  },
+  "facts": [
+    {
+      "id": "problem",
+      "topic": "Problem statement",
+      "value": "Small field teams need a shared workspace for visit notes, assignments, and customer follow-up.",
+      "status": "confirmed",
+      "source": "Example fixture",
+      "rationale": "Representative project brief."
+    },
+    {
+      "id": "platforms",
+      "topic": "Platforms",
+      "value": [
+        "Web"
+      ],
+      "status": "confirmed",
+      "source": "Example fixture",
+      "rationale": "Representative platform scope."
+    }
+  ],
+  "technology": {
+    "preferences": [
+      "TypeScript",
+      "React",
+      "PostgreSQL",
+      "container deployment"
+    ],
+    "selected": [
+      "TypeScript",
+      "React",
+      "PostgreSQL",
+      "container deployment"
+    ],
+    "alternatives": [],
+    "compatibility_evidence": []
+  },
+  "features": [
+    {
+      "id": "workspaces",
+      "name": "Team workspaces",
+      "description": "Team workspaces",
+      "priority": "must",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "A workspace has an owner and member roles",
+        "Only authorized members can access its notes"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "visit-notes",
+      "name": "Visit notes",
+      "description": "Visit notes",
+      "priority": "must",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Notes can be searched by customer and date",
+        "Updates show the editor and timestamp"
+      ],
+      "depends_on": []
+    },
+    {
+      "id": "billing",
+      "name": "Subscription billing",
+      "description": "Subscription billing",
+      "priority": "should",
+      "status": "confirmed",
+      "acceptance_criteria": [
+        "Plan changes have an auditable status"
+      ],
+      "depends_on": []
+    }
+  ],
+  "architecture": {
+    "summary": "Example architecture outline; validate choices against project requirements and current platform documentation.",
+    "components": [
+      {
+        "id": "browser-app",
+        "name": "Web client",
+        "description": "Workspace UI and note search"
+      },
+      {
+        "id": "service-api",
+        "name": "Service API",
+        "description": "Authorizes and stores workspace operations"
+      },
+      {
+        "id": "postgres",
+        "name": "Relational database",
+        "description": "Stores accounts, assignments, and notes"
+      },
+      {
+        "id": "billing-adapter",
+        "name": "Billing integration",
+        "description": "Synchronizes subscription status"
+      }
+    ],
+    "flows": [
+      {
+        "from": "browser-app",
+        "to": "service-api",
+        "label": "HTTPS API"
+      },
+      {
+        "from": "service-api",
+        "to": "postgres",
+        "label": "workspace data"
+      },
+      {
+        "from": "service-api",
+        "to": "billing-adapter",
+        "label": "subscription event"
+      },
+      {
+        "from": "billing-adapter",
+        "to": "service-api",
+        "label": "verified billing status"
+      }
+    ]
+  },
+  "data_api": {
+    "datastores": [
+      "PostgreSQL relational database"
+    ],
+    "apis": [
+      "Stripe billing API",
+      "Email delivery API"
+    ],
+    "authentication": [
+      "Organization sign-in and role-based access"
+    ],
+    "decisions": [
+      {
+        "id": "decision-1",
+        "question": "Workspace tenant isolation model",
+        "status": "recommended",
+        "owner": "Supervisor",
+        "options": [
+          "Shared relational schema with tenant keys",
+          "Separate database per tenant"
+        ],
+        "selected": null,
+        "rationale": "Compare operational cost and isolation guarantees before implementation."
+      }
+    ]
+  },
+  "constraints": {
+    "security_privacy": [
+      "Tenant isolation is required",
+      "Encrypt secrets and minimize customer data"
+    ],
+    "offline": "Read-only cached workspace shell is optional; edits require online confirmation.",
+    "monetization": "",
+    "performance": [
+      "Search common customer notes within an agreed latency budget"
+    ],
+    "accessibility": [],
+    "localization": [],
+    "deployment": [
+      "Staging and production environments",
+      "Database backup and restore plan"
+    ],
+    "budget": ""
+  },
+  "capability_report": {
+    "generated_at": "2026-11-04T14:07:00Z",
+    "runtime": {
+      "name": "example fixture",
+      "detected": false,
+      "version": null,
+      "session_availability": "unverified",
+      "evidence": [
+        "No current runtime inspection is embedded in this fixture."
+      ],
+      "session_inventory_complete": false
+    },
+    "skills": [],
+    "agents": [],
+    "tools": [],
+    "role_matches": [
+      {
+        "role_id": "supervisor",
+        "requirements": [
+          {
+            "capability": "project synthesis",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "risk and dependency management",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      },
+      {
+        "role_id": "web-engineer",
+        "requirements": [
+          {
+            "capability": "web frontend engineering",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "browser compatibility",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      },
+      {
+        "role_id": "backend-engineer",
+        "requirements": [
+          {
+            "capability": "backend architecture",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "API design",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      },
+      {
+        "role_id": "database-architect",
+        "requirements": [
+          {
+            "capability": "database design",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "data lifecycle",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      },
+      {
+        "role_id": "devops-engineer",
+        "requirements": [
+          {
+            "capability": "deployment automation",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          },
+          {
+            "capability": "infrastructure as code",
+            "kind": "required",
+            "status": "unverified",
+            "evidence": [
+              "Example fixture contains no runtime inventory."
+            ]
+          }
+        ]
+      }
+    ],
+    "gaps": [
+      "supervisor: project synthesis is unverified",
+      "supervisor: risk and dependency management is unverified",
+      "web-engineer: web frontend engineering is unverified",
+      "web-engineer: browser compatibility is unverified",
+      "backend-engineer: backend architecture is unverified",
+      "backend-engineer: API design is unverified",
+      "database-architect: database design is unverified",
+      "database-architect: data lifecycle is unverified",
+      "devops-engineer: deployment automation is unverified",
+      "devops-engineer: infrastructure as code is unverified"
+    ]
+  },
+  "team": {
+    "approval_status": "proposed",
+    "supervisor": {
+      "id": "supervisor",
+      "role_id": "supervisor",
+      "name": "Supervisor / Technical Lead",
+      "mission": "Own the canonical project specification and coordinate delivery.",
+      "responsibilities": [
+        "Resolve conflicting recommendations",
+        "Maintain scope, manifest, milestones, risks, and decisions"
+      ],
+      "exclusions": [
+        "Does not own every implementation workstream",
+        "Does not present assumptions as verified facts"
+      ],
+      "inputs": [
+        "Accepted project manifest and relevant repository evidence",
+        "Prerequisite: Receives findings from all specialists",
+        "Prerequisite: Architecture and product choices precede implementation assignments"
+      ],
+      "outputs": [
+        "authoritative project specification",
+        "team plan",
+        "decision and risk registers"
+      ],
+      "dependencies": [],
+      "acceptance_criteria": [
+        "All work has an owner and handoff",
+        "manifest and generated docs agree"
+      ],
+      "handoff_requirements": [
+        "Give bounded briefs with inputs, outputs, and acceptance criteria",
+        "Return unresolved user-owned decisions to the user"
+      ],
+      "required_capabilities": [
+        "project synthesis",
+        "risk and dependency management"
+      ],
+      "supporting_skills": [
+        "project planning",
+        "architecture",
+        "decision records"
+      ]
+    },
+    "specialists": [
+      {
+        "id": "web-engineer",
+        "role_id": "web-engineer",
+        "name": "Web Engineer",
+        "mission": "Plan browser and web application architecture.",
+        "responsibilities": [
+          "Recommend component, state, and routing structure",
+          "Identify responsive, accessibility, security, and browser constraints"
+        ],
+        "exclusions": [
+          "Does not decide backend data ownership",
+          "Does not claim accessibility conformance without checks"
+        ],
+        "inputs": [
+          "Accepted project manifest and relevant repository evidence",
+          "Prerequisite: UX flows",
+          "Prerequisite: API contract"
+        ],
+        "outputs": [
+          "frontend architecture",
+          "route and component outline",
+          "browser validation matrix"
+        ],
+        "dependencies": [],
+        "acceptance_criteria": [
+          "Routes and data states are covered",
+          "responsive and failure states are documented"
+        ],
+        "handoff_requirements": [
+          "Coordinate API types with backend",
+          "Work with UX and QA on responsive behavior"
+        ],
+        "required_capabilities": [
+          "web frontend engineering",
+          "browser compatibility"
+        ],
+        "supporting_skills": [
+          "web",
+          "frontend",
+          "browser",
+          "typescript",
+          "react",
+          "vue",
+          "accessibility"
+        ]
+      },
+      {
+        "id": "backend-engineer",
+        "role_id": "backend-engineer",
+        "name": "Backend Engineer",
+        "mission": "Plan service architecture, APIs, and business logic.",
+        "responsibilities": [
+          "Define service boundaries and API behavior",
+          "Identify reliability, idempotency, and observability needs"
+        ],
+        "exclusions": [
+          "Does not choose database alone when data modeling is material",
+          "Does not treat authentication as authorization"
+        ],
+        "inputs": [
+          "Accepted project manifest and relevant repository evidence",
+          "Prerequisite: data model",
+          "Prerequisite: identity provider",
+          "Prerequisite: client needs"
+        ],
+        "outputs": [
+          "API and service design",
+          "error and auth contract",
+          "operational requirements"
+        ],
+        "dependencies": [],
+        "acceptance_criteria": [
+          "API contract has consumers, errors, and security requirements",
+          "deployability assumptions are identified"
+        ],
+        "handoff_requirements": [
+          "Coordinate schemas with database architect",
+          "Coordinate threat boundaries with security",
+          "Supply contracts to clients and QA"
+        ],
+        "required_capabilities": [
+          "backend architecture",
+          "API design"
+        ],
+        "supporting_skills": [
+          "backend",
+          "api",
+          "service",
+          "authentication",
+          "authorization"
+        ]
+      },
+      {
+        "id": "database-architect",
+        "role_id": "database-architect",
+        "name": "Database Architect",
+        "mission": "Design data models, storage, and migration strategy.",
+        "responsibilities": [
+          "Model entities and invariants",
+          "Define query, index, migration, backup, and lifecycle needs"
+        ],
+        "exclusions": [
+          "Does not approve security controls alone",
+          "Does not speculate on capacity without workload data"
+        ],
+        "inputs": [
+          "Accepted project manifest and relevant repository evidence",
+          "Prerequisite: domain entities",
+          "Prerequisite: API access patterns"
+        ],
+        "outputs": [
+          "logical data model",
+          "migration and backup plan",
+          "storage trade-offs"
+        ],
+        "dependencies": [],
+        "acceptance_criteria": [
+          "Database Architect outputs address the agreed high-risk questions and contain evidence or an explicit validation action."
+        ],
+        "handoff_requirements": [
+          "Coordinate with backend and security",
+          "Surface retention choices to product owner"
+        ],
+        "required_capabilities": [
+          "database design",
+          "data lifecycle"
+        ],
+        "supporting_skills": [
+          "database",
+          "schema",
+          "sql",
+          "storage",
+          "data model"
+        ]
+      },
+      {
+        "id": "devops-engineer",
+        "role_id": "devops-engineer",
+        "name": "DevOps Engineer",
+        "mission": "Plan build, deployment, and runtime operations.",
+        "responsibilities": [
+          "Define build and release path",
+          "Identify secrets, rollback, monitoring, cost, and recovery needs"
+        ],
+        "exclusions": [
+          "Does not expose credentials",
+          "Does not promise availability without service targets"
+        ],
+        "inputs": [
+          "Accepted project manifest and relevant repository evidence",
+          "Prerequisite: service architecture",
+          "Prerequisite: release constraints"
+        ],
+        "outputs": [
+          "deployment topology",
+          "pipeline outline",
+          "operations and recovery checklist"
+        ],
+        "dependencies": [],
+        "acceptance_criteria": [
+          "Environments and release gates are defined",
+          "operational assumptions have owners"
+        ],
+        "handoff_requirements": [
+          "Coordinate runtime needs with backend and release",
+          "Coordinate threat controls with security"
+        ],
+        "required_capabilities": [
+          "deployment automation",
+          "infrastructure as code"
+        ],
+        "supporting_skills": [
+          "devops",
+          "cloud",
+          "ci",
+          "cd",
+          "deployment",
+          "infrastructure",
+          "observability"
+        ]
+      }
+    ],
+    "rationale": [
+      "Web Engineer: project signal matches 'web'; project signal matches 'react'; project signal matches 'typescript'; selected platform is Web",
+      "Backend Engineer: project signal matches 'api'",
+      "Database Architect: project signal matches 'database'",
+      "DevOps Engineer: project signal matches 'deployment'",
+      "Review 3 overlapping role pair(s); keep separate only if their deliverables have distinct owners."
+    ],
+    "optimization": {
+      "mode": "standard",
+      "coordination_score": 14.57,
+      "estimated_input_tokens": 9340,
+      "estimated_output_tokens": 7650,
+      "handoffs": 5,
+      "metrics": {
+        "role_relevance": [
+          {
+            "role_id": "web-engineer",
+            "score": 10.0,
+            "signals": [
+              "project signal matches 'web'",
+              "project signal matches 'react'",
+              "project signal matches 'typescript'",
+              "selected platform is Web"
+            ]
+          },
+          {
+            "role_id": "backend-engineer",
+            "score": 2.5,
+            "signals": [
+              "project signal matches 'api'"
+            ]
+          },
+          {
+            "role_id": "database-architect",
+            "score": 2.5,
+            "signals": [
+              "project signal matches 'database'"
+            ]
+          },
+          {
+            "role_id": "devops-engineer",
+            "score": 2.5,
+            "signals": [
+              "project signal matches 'deployment'"
+            ]
+          }
+        ],
+        "role_overlap": {
+          "pair_count": 3,
+          "pairs": [
+            [
+              "backend-engineer",
+              "database-architect"
+            ],
+            [
+              "backend-engineer",
+              "devops-engineer"
+            ],
+            [
+              "backend-engineer",
+              "web-engineer"
+            ]
+          ]
+        },
+        "workstream_independence": {
+          "score": 0.5,
+          "basis": "1 minus overlapping role pairs divided by all possible specialist pairs; a one-role team scores 1.0."
+        },
+        "coordination_overhead": {
+          "score": 14.57,
+          "handoffs": 5,
+          "basis": "Team-size, handoff, and project-complexity planning heuristic; lower is simpler."
+        },
+        "context_requirements": {
+          "estimated_input_tokens": 9340,
+          "project_complexity_units": 7,
+          "per_role": [
+            {
+              "role_id": "web-engineer",
+              "required_capability_count": 4,
+              "deliverable_count": 3,
+              "research_method_count": 2,
+              "estimated_input_tokens": 1500
+            },
+            {
+              "role_id": "backend-engineer",
+              "required_capability_count": 5,
+              "deliverable_count": 3,
+              "research_method_count": 2,
+              "estimated_input_tokens": 1500
+            },
+            {
+              "role_id": "database-architect",
+              "required_capability_count": 5,
+              "deliverable_count": 3,
+              "research_method_count": 2,
+              "estimated_input_tokens": 1500
+            },
+            {
+              "role_id": "devops-engineer",
+              "required_capability_count": 4,
+              "deliverable_count": 3,
+              "research_method_count": 2,
+              "estimated_input_tokens": 1500
+            }
+          ],
+          "basis": "Planning estimate uses 2,500 supervisor input tokens, 1,500 per specialist, and 120 per feature or architecture component."
+        },
+        "research_complexity": {
+          "score": 3.0,
+          "research_method_count": 8,
+          "basis": "Average number of catalogue research methods per selected role, multiplied by 1.5 and capped at 10."
+        },
+        "integration_complexity": {
+          "score": 8.6,
+          "basis": "Heuristic: 1 + 0.75 per specialist + 0.8 per overlap pair + 0.6 per manifest dependency + 0.25 per architecture component, capped at 10."
+        },
+        "handoffs": 5,
+        "expected_review_effort_points": 14.0,
+        "review_effort_basis": "Uncalibrated points: 2 supervisor points, 1 per specialist, 0.5 per catalogue deliverable, and 0.25 per acceptance criterion."
+      }
+    },
+    "selection_mode": "dynamic"
+  },
+  "dependencies": [
+    {
+      "from": "backend-engineer",
+      "to": "database-architect",
+      "kind": "blocks"
+    },
+    {
+      "from": "devops-engineer",
+      "to": "backend-engineer",
+      "kind": "informs"
+    }
+  ],
+  "deliverables": [
+    {
+      "id": "kickoff-spec",
+      "name": "Accepted project kickoff specification",
+      "owner": "Supervisor / Technical Lead",
+      "acceptance_criteria": [
+        "Open decisions and risks are visible",
+        "Manifest validates and generated documents agree"
+      ],
+      "status": "planned"
+    }
+  ],
+  "milestones": [
+    {
+      "id": "discovery",
+      "name": "Discovery and architecture decisions",
+      "target": "Before implementation",
+      "depends_on": []
+    },
+    {
+      "id": "implementation",
+      "name": "Implementation and verification",
+      "target": "After discovery acceptance",
+      "depends_on": [
+        "discovery"
+      ]
+    }
+  ],
+  "risks": [
+    {
+      "id": "risk-1",
+      "description": "Tenant authorization defect could expose customer notes",
+      "likelihood": "high",
+      "impact": "high",
+      "mitigation": "Threat model access paths and add cross-tenant authorization tests",
+      "owner": "Security Engineer"
+    }
+  ],
+  "assumptions": [],
+  "decisions": [],
+  "cost_estimate": {
+    "currency": "UNSPECIFIED",
+    "total_amount": null,
+    "confidence": "unknown",
+    "items": [],
+    "token_estimate": {
+      "input": 0,
+      "output": 0,
+      "method": "Not estimated."
+    },
+    "assumptions": []
+  },
+  "output_preferences": {
+    "formats": [
+      "markdown",
+      "html"
+    ],
+    "include_architecture_diagram": true,
+    "include_team_contracts": true
+  },
+  "readiness": {
+    "status": "needs_input",
+    "blockers": [
+      "Resolve the pending project decisions and verify architecture/dependency compatibility."
+    ],
+    "checked_at": "2026-11-04T14:00:47Z"
+  },
+  "change_log": [],
+  "extensions": {}
+}

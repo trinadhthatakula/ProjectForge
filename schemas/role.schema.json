@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://projectforge.local/schemas/role.schema.json",
+  "title": "ProjectForge expert role profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "category", "identity", "mission", "competencies", "knowledge_boundaries", "responsibilities", "exclusions", "required_capabilities", "optional_capabilities", "supporting_skill_categories", "tool_requirements", "research_methodology", "deliverables", "dependencies", "collaboration_requirements", "quality_standards", "acceptance_criteria", "escalation_conditions", "triggers", "overlap_with"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "category": {"type": "string"},
+    "identity": {"type": "string"},
+    "mission": {"type": "string"},
+    "competencies": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "knowledge_boundaries": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "responsibilities": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "exclusions": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "required_capabilities": {"type": "array", "items": {"type": "string"}},
+    "optional_capabilities": {"type": "array", "items": {"type": "string"}},
+    "supporting_skill_categories": {"type": "array", "items": {"type": "string"}},
+    "tool_requirements": {"type": "array", "items": {"type": "string"}},
+    "research_methodology": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "deliverables": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "dependencies": {"type": "array", "items": {"type": "string"}},
+    "collaboration_requirements": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "quality_standards": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "acceptance_criteria": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "escalation_conditions": {"type": "array", "items": {"type": "string"}, "minItems": 1},
+    "triggers": {"type": "array", "items": {"type": "string"}},
+    "overlap_with": {"type": "array", "items": {"type": "string"}}
+  }
+}
