@@ -71,7 +71,7 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
 ## Package layout
 
 - `SKILL.md` contains the shared workflow and key constraints.
-- `references/roles.json` contains the specialist catalogue; other references explain discovery, architecture, and runtime limits.
+- `references/roles.json` contains the specialist catalogue and links each built-in role to its focused guide under `references/role-guides/`; other references explain discovery, architecture, and runtime limits.
 - `schemas/` defines the canonical project manifest, role profile, and assignment contract.
 - `scripts/` implements deterministic operations. It reads skill metadata and agent configuration but never executes discovered scripts.
 - `templates/` holds document framing; renderers fill both formats from the same manifest.

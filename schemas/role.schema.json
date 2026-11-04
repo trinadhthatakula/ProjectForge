@@ -7,6 +7,7 @@
   "required": ["id", "category", "identity", "mission", "competencies", "knowledge_boundaries", "responsibilities", "exclusions", "required_capabilities", "optional_capabilities", "supporting_skill_categories", "tool_requirements", "research_methodology", "deliverables", "dependencies", "collaboration_requirements", "quality_standards", "acceptance_criteria", "escalation_conditions", "triggers", "overlap_with"],
   "properties": {
     "id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+    "guide": {"type": "string", "pattern": "^role-guides/[a-z0-9]+(?:-[a-z0-9]+)*\\.md$"},
     "category": {"type": "string"},
     "identity": {"type": "string"},
     "mission": {"type": "string"},

@@ -1,5 +1,5 @@
 {
-  "catalog_version": "1.0.0",
+  "catalog_version": "1.1.0",
   "roles": [
     {
       "id": "supervisor",
@@ -73,11 +73,17 @@
       "triggers": [
         "all projects",
         "coordination",
-        "project kickoff"
+        "project kickoff",
+        "project coordination",
+        "multi-discipline plan",
+        "cross-team handoffs",
+        "conflicting recommendations",
+        "scope or budget trade-offs"
       ],
       "overlap_with": [
         "none"
-      ]
+      ],
+      "guide": "role-guides/supervisor.md"
     },
     {
       "id": "android-engineer",
@@ -156,12 +162,20 @@
         "android",
         "kotlin",
         "jetpack compose",
-        "play store"
+        "native Android",
+        "Gradle",
+        "APK/AAB",
+        "Android permissions",
+        "background work",
+        "widgets",
+        "Android platform API",
+        "Play Billing integration"
       ],
       "overlap_with": [
         "web-engineer",
         "backend-engineer"
-      ]
+      ],
+      "guide": "role-guides/android-engineer.md"
     },
     {
       "id": "ios-engineer",
@@ -237,12 +251,20 @@
         "ios",
         "swift",
         "swiftui",
-        "app store"
+        "native iOS",
+        "Xcode",
+        "TestFlight",
+        "Apple entitlements",
+        "app extensions",
+        "iOS background tasks",
+        "privacy manifests",
+        "App Store Connect build setup"
       ],
       "overlap_with": [
         "web-engineer",
         "backend-engineer"
-      ]
+      ],
+      "guide": "role-guides/ios-engineer.md"
     },
     {
       "id": "web-engineer",
@@ -321,12 +343,21 @@
         "frontend",
         "browser",
         "react",
-        "typescript"
+        "typescript",
+        "browser app",
+        "Vue",
+        "SPA",
+        "server-rendered UI",
+        "PWA",
+        "browser storage",
+        "responsive web",
+        "web accessibility"
       ],
       "overlap_with": [
         "backend-engineer",
         "ui-ux-specialist"
-      ]
+      ],
+      "guide": "role-guides/web-engineer.md"
     },
     {
       "id": "backend-engineer",
@@ -406,13 +437,31 @@
         "api",
         "server",
         "authentication",
-        "microservice"
+        "microservice",
+        "backend API",
+        "REST",
+        "GraphQL",
+        "webhook",
+        "queue",
+        "authorization",
+        "multi-tenant",
+        "multi-tenant SaaS",
+        "tenant isolation",
+        "organization membership",
+        "SSO integration",
+        "subscription billing",
+        "paid subscriptions",
+        "billing integration",
+        "entitlements",
+        "tenant provisioning",
+        "audit events"
       ],
       "overlap_with": [
         "database-architect",
         "security-engineer",
         "devops-engineer"
-      ]
+      ],
+      "guide": "role-guides/backend-engineer.md"
     },
     {
       "id": "python-engineer",
@@ -491,12 +540,21 @@
         "python",
         "automation",
         "cli",
-        "packaging"
+        "packaging",
+        "Python app",
+        "Python package",
+        "automation script",
+        "async worker",
+        "pip",
+        "pyproject.toml",
+        "virtual environment",
+        "Python distribution"
       ],
       "overlap_with": [
         "backend-engineer",
         "devops-engineer"
-      ]
+      ],
+      "guide": "role-guides/python-engineer.md"
     },
     {
       "id": "database-architect",
@@ -573,12 +631,31 @@
         "database",
         "schema",
         "storage",
-        "sql"
+        "sql",
+        "database schema",
+        "data model",
+        "migrations",
+        "transactions",
+        "data retention",
+        "backup and restore",
+        "row-level security",
+        "tenant-scoped data",
+        "multi-tenant",
+        "multi-tenant data model",
+        "tenant isolation",
+        "audit log",
+        "audit logs",
+        "audit log schema",
+        "audit log retention",
+        "tenant data deletion",
+        "data export",
+        "PostgreSQL"
       ],
       "overlap_with": [
         "backend-engineer",
         "security-engineer"
-      ]
+      ],
+      "guide": "role-guides/database-architect.md"
     },
     {
       "id": "security-engineer",
@@ -656,13 +733,31 @@
         "security",
         "privacy",
         "threat modeling",
-        "secure coding"
+        "secure coding",
+        "threat model",
+        "application security",
+        "identity and access",
+        "identity management",
+        "multi-tenant",
+        "tenant isolation",
+        "SSO",
+        "single sign-on",
+        "RBAC",
+        "role-based access control",
+        "permissions",
+        "audit log",
+        "audit logs",
+        "data protection",
+        "data retention",
+        "data export and deletion",
+        "account recovery"
       ],
       "overlap_with": [
         "backend-engineer",
         "devops-engineer",
         "database-architect"
-      ]
+      ],
+      "guide": "role-guides/security-engineer.md"
     },
     {
       "id": "devops-engineer",
@@ -743,13 +838,22 @@
         "cloud",
         "ci cd",
         "deployment",
-        "infrastructure"
+        "infrastructure",
+        "CI/CD",
+        "cloud infrastructure",
+        "Kubernetes",
+        "containers",
+        "deployment pipeline",
+        "infrastructure as code",
+        "observability",
+        "backup and recovery"
       ],
       "overlap_with": [
         "backend-engineer",
         "release-engineer",
         "security-engineer"
-      ]
+      ],
+      "guide": "role-guides/devops-engineer.md"
     },
     {
       "id": "ai-ml-engineer",
@@ -831,13 +935,23 @@
         "ml",
         "llm",
         "model inference",
-        "retrieval"
+        "retrieval",
+        "LLM feature",
+        "generative AI",
+        "machine learning",
+        "inference",
+        "embeddings",
+        "RAG",
+        "vector search",
+        "model evaluation",
+        "model serving"
       ],
       "overlap_with": [
         "backend-engineer",
         "security-engineer",
         "cost-financial-analyst"
-      ]
+      ],
+      "guide": "role-guides/ai-ml-engineer.md"
     },
     {
       "id": "performance-engineer",
@@ -915,13 +1029,22 @@
         "performance",
         "profiling",
         "benchmark",
-        "scalability"
+        "scalability",
+        "latency",
+        "p95/p99",
+        "startup time",
+        "memory profiling",
+        "CPU/GPU bottleneck",
+        "throughput",
+        "load testing",
+        "rendering jank"
       ],
       "overlap_with": [
         "android-engineer",
         "web-engineer",
         "backend-engineer"
-      ]
+      ],
+      "guide": "role-guides/performance-engineer.md"
     },
     {
       "id": "ui-ux-specialist",
@@ -999,14 +1122,22 @@
         "ux",
         "ui",
         "design system",
-        "accessibility"
+        "accessibility",
+        "user research",
+        "user journey",
+        "wireframe",
+        "interaction design",
+        "usability",
+        "onboarding",
+        "checkout flow"
       ],
       "overlap_with": [
         "web-engineer",
         "android-engineer",
         "ios-engineer",
         "product-manager"
-      ]
+      ],
+      "guide": "role-guides/ui-ux-specialist.md"
     },
     {
       "id": "product-manager",
@@ -1082,13 +1213,29 @@
         "product",
         "business analysis",
         "requirements",
-        "roadmap"
+        "roadmap",
+        "problem discovery",
+        "product requirements",
+        "MVP scope",
+        "roadmap prioritization",
+        "acceptance criteria",
+        "user outcome metrics",
+        "stakeholder requirement conflicts",
+        "SaaS monetization",
+        "subscription billing",
+        "paid subscriptions",
+        "paid plans",
+        "pricing tiers",
+        "entitlement model",
+        "usage-based billing",
+        "trial and renewal"
       ],
       "overlap_with": [
         "supervisor",
         "ui-ux-specialist",
         "cost-financial-analyst"
-      ]
+      ],
+      "guide": "role-guides/product-manager.md"
     },
     {
       "id": "qa-test-engineer",
@@ -1168,12 +1315,20 @@
         "qa",
         "testing",
         "test automation",
-        "quality"
+        "quality",
+        "test strategy",
+        "regression testing",
+        "exploratory testing",
+        "acceptance-criteria coverage",
+        "cross-browser testing",
+        "device test matrix",
+        "defect triage"
       ],
       "overlap_with": [
         "release-engineer",
         "all engineering roles"
-      ]
+      ],
+      "guide": "role-guides/qa-test-engineer.md"
     },
     {
       "id": "release-engineer",
@@ -1249,12 +1404,20 @@
         "release",
         "distribution",
         "rollout",
-        "app store release"
+        "app store release",
+        "release packaging",
+        "artifact signing",
+        "build provenance",
+        "app-store submission",
+        "staged rollout",
+        "release gates",
+        "rollback plan"
       ],
       "overlap_with": [
         "qa-test-engineer",
         "devops-engineer"
-      ]
+      ],
+      "guide": "role-guides/release-engineer.md"
     },
     {
       "id": "aso-specialist",
@@ -1328,13 +1491,20 @@
       "triggers": [
         "aso",
         "app store listing",
-        "store keywords"
+        "store keywords",
+        "app-store listing",
+        "Play Store keywords",
+        "App Store metadata",
+        "store-page conversion",
+        "listing experiment",
+        "app-store search terms"
       ],
       "overlap_with": [
         "seo-specialist",
         "geo-specialist",
         "marketing-specialist"
-      ]
+      ],
+      "guide": "role-guides/aso-specialist.md"
     },
     {
       "id": "seo-specialist",
@@ -1411,13 +1581,22 @@
       "triggers": [
         "seo",
         "website search",
-        "organic search"
+        "organic search",
+        "technical SEO",
+        "Google indexing",
+        "robots.txt",
+        "canonical URLs",
+        "website crawlability",
+        "organic search traffic",
+        "search intent",
+        "structured data"
       ],
       "overlap_with": [
         "aso-specialist",
         "geo-specialist",
         "technical-writer"
-      ]
+      ],
+      "guide": "role-guides/seo-specialist.md"
     },
     {
       "id": "geo-specialist",
@@ -1493,13 +1672,19 @@
         "geo",
         "generative search",
         "ai answer visibility",
-        "citations"
+        "citations",
+        "generative search citations",
+        "answer-engine optimization",
+        "sourceability audit",
+        "AI-generated answer accuracy",
+        "entity clarity for answer systems"
       ],
       "overlap_with": [
         "seo-specialist",
         "aso-specialist",
         "technical-writer"
-      ]
+      ],
+      "guide": "role-guides/geo-specialist.md"
     },
     {
       "id": "marketing-specialist",
@@ -1575,14 +1760,22 @@
         "marketing",
         "positioning",
         "campaign",
-        "launch strategy"
+        "launch strategy",
+        "go-to-market plan",
+        "product positioning",
+        "launch campaign",
+        "marketing channel mix",
+        "campaign measurement",
+        "audience messaging",
+        "growth experiment"
       ],
       "overlap_with": [
         "product-manager",
         "aso-specialist",
         "seo-specialist",
         "technical-writer"
-      ]
+      ],
+      "guide": "role-guides/marketing-specialist.md"
     },
     {
       "id": "sales-specialist",
@@ -1660,13 +1853,21 @@
         "sales",
         "b2b",
         "pipeline",
-        "customer acquisition"
+        "customer acquisition",
+        "B2B sales pipeline",
+        "enterprise buyer mapping",
+        "procurement process",
+        "lead qualification",
+        "sales enablement",
+        "CRM sales stages",
+        "sales motion design"
       ],
       "overlap_with": [
         "marketing-specialist",
         "cost-financial-analyst",
         "product-manager"
-      ]
+      ],
+      "guide": "role-guides/sales-specialist.md"
     },
     {
       "id": "cost-financial-analyst",
@@ -1750,13 +1951,21 @@
         "api pricing",
         "budget constraint",
         "project budget",
-        "spending limit"
+        "spending limit",
+        "cloud cost estimate",
+        "API usage cost",
+        "cost per user",
+        "budget cap",
+        "unit economics",
+        "break-even analysis",
+        "vendor pricing scenario"
       ],
       "overlap_with": [
         "devops-engineer",
         "ai-ml-engineer",
         "product-manager"
-      ]
+      ],
+      "guide": "role-guides/cost-financial-analyst.md"
     },
     {
       "id": "technical-writer",
@@ -1833,13 +2042,20 @@
         "technical writing",
         "documentation",
         "api docs",
-        "release notes"
+        "release notes",
+        "API documentation",
+        "developer guide",
+        "user documentation",
+        "setup guide",
+        "documentation information architecture",
+        "operational procedure"
       ],
       "overlap_with": [
         "localization-specialist",
         "product-manager",
         "engineering"
-      ]
+      ],
+      "guide": "role-guides/technical-writer.md"
     },
     {
       "id": "localization-specialist",
@@ -1918,13 +2134,20 @@
         "localization",
         "translation",
         "i18n",
-        "l10n"
+        "l10n",
+        "internationalization",
+        "right-to-left layout",
+        "locale expansion",
+        "language QA",
+        "translation workflow",
+        "regional formats"
       ],
       "overlap_with": [
         "technical-writer",
         "ui-ux-specialist",
         "product-manager"
-      ]
+      ],
+      "guide": "role-guides/localization-specialist.md"
     },
     {
       "id": "open-source-licensing-specialist",
@@ -2003,13 +2226,20 @@
         "licensing",
         "oss",
         "spdx",
-        "sbom"
+        "sbom",
+        "software license audit",
+        "SPDX identifier",
+        "software bill of materials",
+        "third-party attribution",
+        "license compatibility",
+        "copyleft obligations"
       ],
       "overlap_with": [
         "security-engineer",
         "release-engineer",
         "backend-engineer"
-      ]
+      ],
+      "guide": "role-guides/open-source-licensing-specialist.md"
     }
   ]
 }

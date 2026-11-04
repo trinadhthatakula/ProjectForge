@@ -9,7 +9,8 @@ ProjectForge separates conversational judgment from deterministic checks. The sk
 | Component | Responsibility |
 | --- | --- |
 | `SKILL.md` | Runtime-independent discovery and orchestration instructions with progressive disclosure. |
-| `references/roles.json` | Versioned expert profiles, matching tags, capability expectations, and collaboration relationships. |
+| `references/roles.json` | Versioned expert profiles, role-specific trigger cues, capability expectations, collaboration relationships, and links to selected-role guides. |
+| `references/role-guides/` | Selected-role planning rules, domain cues, evidence requirements, boundaries, and handoff criteria. Read only guides for shortlisted roles. |
 | `scripts/projectforge.py` | CLI entry point for manifest creation, capability discovery, matching, optimization, validation, estimation, rendering, and diffing. |
 | `schemas/` | Draft 2020-12 schemas for project manifests, expert roles, and assignment contracts. |
 | `templates/` | Markdown and standalone HTML presentation structure. |

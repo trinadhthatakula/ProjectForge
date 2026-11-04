@@ -177,7 +177,7 @@ def validate_role_catalog(catalog: dict[str, Any] | None = None) -> list[str]:
         raise RuntimeError("Role validation requires jsonschema. Install it with: python3 -m pip install -r projectforge/requirements.txt") from exc
     if not isinstance(catalog, dict) or not isinstance(catalog.get("roles"), list):
         return ["catalogue must be an object containing a roles array"]
-    if catalog.get("catalog_version") != "1.0.0" and catalog.get("catalog_version") != "custom":
+    if catalog.get("catalog_version") not in {"1.0.0", "1.1.0", "custom"}:
         return [f"unsupported role catalogue version: {catalog.get('catalog_version')!r}"]
     schema = read_json(skill_root() / "schemas" / "role.schema.json")
     Draft202012Validator.check_schema(schema)
@@ -191,6 +191,14 @@ def validate_role_catalog(catalog: dict[str, Any] | None = None) -> list[str]:
         for error in validator.iter_errors(role):
             path = ".".join(str(part) for part in error.absolute_path) or "$"
             errors.append(f"roles[{index}].{path}: {error.message}")
+        guide = role.get("guide")
+        if isinstance(guide, str) and guide:
+            expected_guide = f"role-guides/{role.get('id')}.md"
+            guide_path = skill_root() / "references" / guide
+            if guide != expected_guide:
+                errors.append(f"roles[{index}].guide: expected {expected_guide!r}")
+            elif not guide_path.is_file():
+                errors.append(f"roles[{index}].guide: file does not exist: {guide!r}")
     for index, role in enumerate(catalog.get("roles", [])):
         if role.get("id") in role.get("overlap_with", []):
             errors.append(f"roles[{index}] cannot overlap with itself")

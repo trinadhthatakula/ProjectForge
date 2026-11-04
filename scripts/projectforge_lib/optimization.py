@@ -9,11 +9,28 @@ from .common import new_assignment
 MODE_LIMITS = {"quick": 1, "standard": 4, "comprehensive": 6, "custom": 6, "agent_decided": 6}
 
 
+def _selection_text(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        ignored = {"id", "status", "owner", "source", "likelihood", "impact", "evidence_status", "confidence"}
+        return [text for key, item in value.items() if key not in ignored for text in _selection_text(item)]
+    if isinstance(value, list):
+        return [text for item in value for text in _selection_text(item)]
+    return []
+
+
 def _project_text(manifest: dict[str, Any]) -> str:
     project = manifest["project"]
-    fields = [project.get("name", ""), project.get("summary", ""), project.get("problem_statement", ""), *project.get("target_audience", []), *project.get("goals", []), *project.get("platforms", []), *manifest["technology"].get("preferences", []), *manifest["technology"].get("selected", []), *manifest["data_api"].get("datastores", []), *manifest["data_api"].get("apis", []), *manifest["data_api"].get("authentication", []), *manifest["constraints"].get("security_privacy", []), *manifest["constraints"].get("performance", []), *manifest["constraints"].get("deployment", [])]
-    fields.extend(feature.get("name", "") + " " + feature.get("description", "") for feature in manifest.get("features", []))
-    return " ".join(str(value) for value in fields).casefold()
+    fields = [
+        project.get("name", ""), project.get("summary", ""), project.get("problem_statement", ""),
+        project.get("classification", ""), project.get("target_audience", []), project.get("goals", []),
+        project.get("platforms", []), project.get("scope", {}), project.get("existing_repository", {}).get("observations", []),
+        manifest.get("technology", {}), manifest.get("features", []), manifest.get("architecture", {}),
+        manifest.get("data_api", {}), manifest.get("constraints", {}), manifest.get("risks", []),
+        manifest.get("assumptions", []), manifest.get("decisions", []),
+    ]
+    return " ".join(text for value in fields for text in _selection_text(value)).casefold()
 
 
 def _token_match(phrase: str, text: str) -> bool:
