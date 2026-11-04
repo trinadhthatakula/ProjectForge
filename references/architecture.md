@@ -41,7 +41,7 @@ Role requirements match to discovered skill names/descriptions, tool names, and 
 
 ## Team model
 
-The supervisor is always present and counts toward the total. `optimize` supports dynamic, manual, and hybrid selection and recommends no more than six specialists. It reports signal-based role relevance, overlap, workstream independence, coordination overhead, context needs, research and integration complexity, handoffs, estimated token use, and review effort. These values are planning heuristics with visible calculation bases. Requested rosters beyond the limit are surfaced for user discussion; they are never silently truncated or accepted. Each specialist assignment has a contract validated against `schemas/agent-assignment.schema.json`.
+The supervisor is always present and counts toward the total. `optimize` supports dynamic, manual, and hybrid selection and recommends no more than six specialists. It reports signal-based role relevance, overlap, workstream independence, coordination overhead, context needs, research and integration complexity, handoffs, estimated token use, and review effort. Confirmed project signals and selected requirements score above unresolved facts and questions, which remain visible in the rationale. These values are planning heuristics with visible calculation bases. Requested rosters beyond the limit are surfaced for user discussion; they are never silently truncated or accepted. Each specialist assignment has a contract validated against `schemas/agent-assignment.schema.json`.
 
 ## Runtime adapters
 

@@ -43,13 +43,14 @@ Before marking a kickoff ready, check:
 1. Goals, audience, and in/out scope are explicit enough to guide implementation.
 2. Platform and core architecture choices are verified or visibly pending.
 3. Data, API, authentication, and security/privacy decisions have owners and evidence status.
-4. Major features have acceptance criteria and dependencies.
+4. Must-have features have acceptance criteria and dependencies.
 5. The team fits the hard limit, has minimal overlap, and has valid contracts and handoffs.
-6. Required capabilities are available or have a credible plan; unknowns are not overstated.
-7. Risks, assumptions, budget, milestones, and unresolved decisions are visible.
-8. Manifest validation passes and generated documents match the manifest.
+6. Required capabilities are available or have an owner and concrete next action in `readiness.capability_plans`; tool requirements have direct tool evidence, and skill metadata alone is not proof of a usable executable or integration.
+7. Required decisions are confirmed or verified. Optional open decisions remain visible with an owner and are marked `required: false`.
+8. Risks, assumptions, budget, monetization disposition, and milestones are visible; high-impact risks and open assumptions have owners and next actions. State explicitly when a budget limit or monetization plan does not apply.
+9. Manifest validation passes and generated documents match the manifest.
 
-An open gate means the readiness state is `needs_input` or `blocked`; do not call it implementation-ready. A missing specialist capability can be a risk rather than a blocker if the project plan has an owner and next action.
+The validator reports derived open gates in addition to recorded blockers and rejects `ready` whenever a required gate remains open. Keep `readiness.blockers` aligned with those findings. An open required gate means the readiness state is `needs_input` or `blocked`; do not call it implementation-ready. A missing specialist capability can be planned work rather than a blocker only when its role, capability, owner, and concrete next action are recorded in `readiness.capability_plans`. Unresolved optional decisions remain visible and owned without blocking readiness.
 
 ## Change management
 

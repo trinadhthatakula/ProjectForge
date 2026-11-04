@@ -20,17 +20,37 @@ def _selection_text(value: Any) -> list[str]:
     return []
 
 
-def _project_text(manifest: dict[str, Any]) -> str:
+def _project_text(manifest: dict[str, Any]) -> tuple[str, str]:
     project = manifest["project"]
-    fields = [
+    confirmed_fields: list[Any] = [
         project.get("name", ""), project.get("summary", ""), project.get("problem_statement", ""),
         project.get("classification", ""), project.get("target_audience", []), project.get("goals", []),
         project.get("platforms", []), project.get("scope", {}), project.get("existing_repository", {}).get("observations", []),
-        manifest.get("technology", {}), manifest.get("features", []), manifest.get("architecture", {}),
-        manifest.get("data_api", {}), manifest.get("constraints", {}), manifest.get("risks", []),
-        manifest.get("assumptions", []), manifest.get("decisions", []),
+        {key: manifest.get("technology", {}).get(key, []) for key in ("preferences", "selected", "alternatives")},
+        manifest.get("architecture", {}), manifest.get("constraints", {}),
+        {key: value for key, value in manifest.get("data_api", {}).items() if key != "decisions"},
     ]
-    return " ".join(text for value in fields for text in _selection_text(value)).casefold()
+    open_fields: list[Any] = [manifest.get("risks", [])]
+    for evidence in manifest.get("technology", {}).get("compatibility_evidence", []):
+        target = confirmed_fields if evidence.get("status") in {"confirmed", "verified"} else open_fields
+        target.append({key: value for key, value in evidence.items() if key != "status"})
+    for feature in manifest.get("features", []):
+        target = confirmed_fields if feature.get("status") in {"confirmed", "verified"} else open_fields
+        target.append({key: value for key, value in feature.items() if key != "status"})
+    for fact in manifest.get("facts", []):
+        target = confirmed_fields if fact.get("status") in {"confirmed", "verified"} else open_fields
+        target.append({key: value for key, value in fact.items() if key not in {"status", "source"}})
+    decisions = [*manifest.get("decisions", []), *manifest.get("data_api", {}).get("decisions", [])]
+    for decision in decisions:
+        target = confirmed_fields if decision.get("status") in {"confirmed", "verified"} else open_fields
+        fields = {key: value for key, value in decision.items() if key not in {"status", "owner", "id", "evidence"}}
+        target.append(fields)
+    for assumption in manifest.get("assumptions", []):
+        target = confirmed_fields if assumption.get("status") == "validated" else open_fields
+        target.append({key: value for key, value in assumption.items() if key not in {"status", "owner", "id"}})
+    confirmed_text = " ".join(text for value in confirmed_fields for text in _selection_text(value)).casefold()
+    open_text = " ".join(text for value in open_fields for text in _selection_text(value)).casefold()
+    return confirmed_text, open_text
 
 
 def _token_match(phrase: str, text: str) -> bool:
@@ -45,7 +65,7 @@ def _token_match(phrase: str, text: str) -> bool:
     return re.search(rf"(?<![a-z0-9]){re.escape(word)}(?![a-z0-9])", normalized) is not None
 
 
-def _score_role(role: dict[str, Any], text: str, platforms: list[str]) -> tuple[float, list[str]]:
+def _score_role(role: dict[str, Any], text: str, platforms: list[str], open_text: str = "") -> tuple[float, list[str]]:
     reasons: list[str] = []
     score = 0.0
     for trigger in role["triggers"]:
@@ -54,6 +74,9 @@ def _score_role(role: dict[str, Any], text: str, platforms: list[str]) -> tuple[
         if _token_match(trigger, text):
             score += 2.5 if " " not in trigger else 3.0
             reasons.append(f"project signal matches {trigger!r}")
+        elif _token_match(trigger, open_text):
+            score += 1.5 if " " not in trigger else 2.0
+            reasons.append(f"open question or assumption matches {trigger!r}")
     identity = role["identity"].casefold()
     for platform in platforms:
         if platform and _token_match(platform, identity + " " + role["mission"].casefold()):
@@ -191,13 +214,13 @@ def optimize_team(
     if selection_mode == "dynamic" and requested_roles:
         raise ValueError("Dynamic selection cannot be combined with --role; choose manual or hybrid")
     specialist_profiles = [role for role in roles if role["id"] != "supervisor"]
-    project_text = _project_text(manifest)
+    project_text, open_text = _project_text(manifest)
     platforms = manifest["project"].get("platforms", [])
-    scores = {role["id"]: _score_role(role, project_text, platforms) for role in specialist_profiles}
+    scores = {role["id"]: _score_role(role, project_text, platforms, open_text) for role in specialist_profiles}
     database_terms = ("database architecture", "data model", "schema migration", "query optimization", "data warehouse", "database architect", "multi-tenant data")
     local_stores = manifest["data_api"].get("datastores", [])
     local_only = bool(local_stores) and not manifest["data_api"].get("apis") and all(any(token in store.casefold() for token in ("local", "room", "sqlite", "filesystem", "file system")) for store in local_stores)
-    if local_only and not any(term in project_text for term in database_terms):
+    if local_only and not any(term in project_text + " " + open_text for term in database_terms):
         prior_score, prior_reasons = scores.get("database-architect", (0.0, []))
         if prior_score:
             scores["database-architect"] = (0.0, [reason for reason in prior_reasons if "datastore" not in reason])

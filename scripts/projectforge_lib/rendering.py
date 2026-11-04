@@ -8,6 +8,7 @@ from typing import Any
 
 from .common import skill_root
 from .security import redact_sensitive
+from .validation import readiness_blockers
 
 
 def _value(value: Any) -> str:
@@ -158,7 +159,7 @@ def _html_dependencies(manifest: dict[str, Any]) -> str:
 def render_markdown(manifest: dict[str, Any]) -> str:
     project = manifest["project"]
     sections: list[str] = []
-    sections.append("## Overview\n\n" + _md(manifest["project"].get("summary") or manifest["project"].get("problem_statement")) + "\n\n**Project ID:** " + _md(project["id"]) + "\n\n**Classification:** " + _md(project["classification"]) + "\n\n**Readiness:** " + _md(manifest["readiness"]["status"]) + "\n\n" + _md_list(manifest["readiness"]["blockers"], "No readiness blockers recorded."))
+    sections.append("## Overview\n\n" + _md(manifest["project"].get("summary") or manifest["project"].get("problem_statement")) + "\n\n**Project ID:** " + _md(project["id"]) + "\n\n**Classification:** " + _md(project["classification"]) + "\n\n**Readiness:** " + _md(manifest["readiness"]["status"]) + "\n\n" + _md_list(readiness_blockers(manifest), "No readiness blockers recorded."))
     sections.append("## Goals and scope\n\n### Goals\n" + _md_list(project["goals"]) + "\n\n### Included\n" + _md_list(project["scope"]["included"]) + "\n\n### Excluded\n" + _md_list(project["scope"]["excluded"]))
     fact_rows = [[item["topic"], _value(item["value"]), item["status"], item.get("source", ""), item.get("rationale", "")] for item in manifest["facts"]]
     sections.append("## Discovery record\n\n**Mode:** " + _md(manifest["discovery"]["mode"]) + "\n\n" + _md_table(["Topic", "Value", "Evidence status", "Source", "Rationale"], fact_rows))
@@ -170,11 +171,12 @@ def render_markdown(manifest: dict[str, Any]) -> str:
     architecture = manifest["architecture"]
     sections.append("## Architecture\n\n" + _md(architecture["summary"]) + "\n\n" + _architecture_mermaid(manifest) + "\n\n### Components\n\n" + _md_table(["ID", "Component", "Purpose"], [[item["id"], item["name"], item["description"]] for item in architecture["components"]]))
     data = manifest["data_api"]
-    sections.append("## Data, APIs, and identity\n\n### Data stores\n" + _md_list(data["datastores"]) + "\n\n### APIs and integrations\n" + _md_list(data["apis"]) + "\n\n### Authentication\n" + _md_list(data["authentication"]) + "\n\n### Decisions\n\n" + _md_table(["Question", "Status", "Owner", "Selected option", "Rationale"], [[item["question"], item["status"], item["owner"], item.get("selected") or "Pending", item["rationale"]] for item in data["decisions"]]))
+    sections.append("## Data, APIs, and identity\n\n### Data stores\n" + _md_list(data["datastores"]) + "\n\n### APIs and integrations\n" + _md_list(data["apis"]) + "\n\n### Authentication\n" + _md_list(data["authentication"]) + "\n\n### Decisions\n\n" + _md_table(["Question", "Status", "Required", "Owner", "Selected option", "Rationale"], [[item["question"], item["status"], item.get("required", True), item["owner"], item.get("selected") or "Pending", item["rationale"]] for item in data["decisions"]]))
     constraints = manifest["constraints"]
     sections.append("## Constraints\n\n### Security and privacy\n" + _md_list(constraints["security_privacy"]) + "\n\n**Offline:** " + _md(constraints["offline"]) + "\n\n**Monetization:** " + _md(constraints["monetization"]) + "\n\n### Performance\n" + _md_list(constraints["performance"]) + "\n\n### Accessibility\n" + _md_list(constraints["accessibility"]) + "\n\n### Localization\n" + _md_list(constraints["localization"]) + "\n\n### Deployment\n" + _md_list(constraints["deployment"]) + "\n\n**Budget:** " + _md(constraints["budget"]))
     caps = manifest["capability_report"]
-    sections.append("## Capability matching report\n\n**Runtime:** " + _md(caps["runtime"]["name"]) + "; session availability: " + _md(caps["runtime"]["session_availability"]) + "\n\n### Required capability matches\n\n" + _md_table(["Role", "Capability", "Kind", "Status", "Evidence"], [[match["role_id"], item["capability"], item["kind"], item["status"], "; ".join(item["evidence"])] for match in caps["role_matches"] for item in match["requirements"]]) + "\n\n### Gaps\n" + _md_list(caps["gaps"], "No gaps recorded."))
+    cap_plan_rows = [[item["role_id"], item["capability"], item["owner"], item["next_action"]] for item in manifest["readiness"].get("capability_plans", [])]
+    sections.append("## Capability matching report\n\n**Runtime:** " + _md(caps["runtime"]["name"]) + "; session availability: " + _md(caps["runtime"]["session_availability"]) + "\n\n### Capability matches\n\n" + _md_table(["Role", "Capability", "Kind", "Type", "Source", "Status", "Evidence"], [[match["role_id"], item["capability"], item["kind"], item.get("requirement_type", "capability"), item.get("source", "role_profile"), item["status"], "; ".join(item["evidence"])] for match in caps["role_matches"] for item in match["requirements"]]) + "\n\n### Gaps\n" + _md_list(caps["gaps"], "No gaps recorded.") + "\n\n### Capability remediation plans\n\n" + _md_table(["Role", "Capability", "Owner", "Next action"], cap_plan_rows))
     team = manifest["team"]
     assignments = [team["supervisor"], *team["specialists"]]
     assignment_rows = [[item["name"], item["role_id"], item["mission"], "; ".join(item["outputs"]), "; ".join(item["dependencies"])] for item in assignments]
@@ -185,7 +187,7 @@ def render_markdown(manifest: dict[str, Any]) -> str:
     relevance_text = "; ".join(f"{item['role_id']}: {item['score']}/10 ({', '.join(item['signals']) or 'user-selected'})" for item in metrics["role_relevance"])
     overlap_text = "; ".join(" / ".join(pair) for pair in metrics["role_overlap"]["pairs"]) or "None"
     metric_rows = [
-        ["Role relevance", relevance_text or "No specialist selected", "Keyword and platform signal heuristic, capped at 10"],
+        ["Role relevance", relevance_text or "No specialist selected", "Confirmed project signals and platform matches rank above unresolved facts and decisions; keyword heuristic, capped at 10"],
         ["Role overlap", f"{metrics['role_overlap']['pair_count']} pair(s): {overlap_text}", "Catalogue overlap relationships"],
         ["Workstream independence", metrics["workstream_independence"]["score"], metrics["workstream_independence"]["basis"]],
         ["Coordination overhead", metrics["coordination_overhead"]["score"], metrics["coordination_overhead"]["basis"]],
@@ -200,7 +202,7 @@ def render_markdown(manifest: dict[str, Any]) -> str:
     sections.append("## Deliverables and milestones\n\n### Deliverables\n\n" + _md_table(["Deliverable", "Owner", "Status", "Acceptance criteria"], [[item["name"], item["owner"], item["status"], "; ".join(item["acceptance_criteria"])] for item in manifest["deliverables"]]) + "\n\n### Milestones\n\n" + _md_table(["Milestone", "Target", "Depends on"], [[item["name"], item["target"], "; ".join(item["depends_on"])] for item in manifest["milestones"]]))
     sections.append("## Risks\n\n" + _md_table(["Risk", "Likelihood", "Impact", "Mitigation", "Owner"], [[item["description"], item["likelihood"], item["impact"], item["mitigation"], item["owner"]] for item in manifest["risks"]]))
     sections.append("## Assumptions\n\n" + _md_table(["Assumption", "Validation action", "Owner", "Status"], [[item["statement"], item["validation_action"], item["owner"], item["status"]] for item in manifest["assumptions"]]))
-    sections.append("## Decision register\n\n" + _md_table(["Question", "Status", "Owner", "Selected", "Options", "Rationale"], [[item["question"], item["status"], item["owner"], item.get("selected") or "Pending", "; ".join(item["options"]), item["rationale"]] for item in manifest["decisions"]]))
+    sections.append("## Decision register\n\n" + _md_table(["Question", "Status", "Required", "Owner", "Selected", "Options", "Rationale"], [[item["question"], item["status"], item.get("required", True), item["owner"], item.get("selected") or "Pending", "; ".join(item["options"]), item["rationale"]] for item in manifest["decisions"]]))
     cost = manifest["cost_estimate"]
     sections.append("## Cost and token estimate\n\n**Currency:** " + _md(cost["currency"]) + "\n\n**Estimated total:** " + _md(cost["total_amount"]) + "\n\n**Confidence:** " + _md(cost["confidence"]) + "\n\n" + _md_table(["Cost item", "Amount", "Basis"], [[item["label"], item["amount"], item["basis"]] for item in cost["items"]]) + "\n\n**Estimated orchestration tokens:** " + _md(cost["token_estimate"]["input"]) + " input, " + _md(cost["token_estimate"]["output"]) + " output. " + _md(cost["token_estimate"]["method"]) + "\n\n### Estimate assumptions\n" + _md_list(cost["assumptions"]))
     repo = project["existing_repository"]
@@ -222,7 +224,7 @@ def render_html(manifest: dict[str, Any]) -> str:
         content.append(_section(title, body, anchor))
 
     goals = '<div class="cards"><div class="card"><h3>Goals</h3>' + _html_list(project["goals"]) + '</div><div class="card"><h3>Included</h3>' + _html_list(project["scope"]["included"]) + '</div><div class="card"><h3>Excluded</h3>' + _html_list(project["scope"]["excluded"]) + "</div></div>"
-    add("overview", "Overview", '<p class="lead">' + _html(project.get("summary") or project.get("problem_statement")) + "</p>" + _html_table(["Project ID", "Classification", "Readiness"], [[project["id"], project["classification"], manifest["readiness"]["status"]]]) + '<div class="panel"><h3>Readiness blockers</h3>' + _html_list(manifest["readiness"]["blockers"], "No blockers recorded.") + "</div>" + goals)
+    add("overview", "Overview", '<p class="lead">' + _html(project.get("summary") or project.get("problem_statement")) + "</p>" + _html_table(["Project ID", "Classification", "Readiness"], [[project["id"], project["classification"], manifest["readiness"]["status"]]]) + '<div class="panel"><h3>Readiness blockers and derived open gates</h3>' + _html_list(readiness_blockers(manifest), "No blockers recorded.") + "</div>" + goals)
     add("discovery", "Discovery", '<p>Mode: <strong>' + _html(manifest["discovery"]["mode"]) + "</strong></p>" + _html_table(["Topic", "Value", "Status", "Source", "Rationale"], [[item["topic"], item["value"], item["status"], item.get("source", ""), item.get("rationale", "")] for item in manifest["facts"]]))
     add("audience", "Audience and platforms", '<div class="cards"><div class="card"><h3>Audience</h3>' + _html_list(project["target_audience"]) + '</div><div class="card"><h3>Platforms</h3>' + _html_list(project["platforms"]) + '</div><div class="card"><h3>Identifiers</h3>' + _html_list(project["identifiers"]) + "</div></div>")
     tech = manifest["technology"]
@@ -234,12 +236,13 @@ def render_html(manifest: dict[str, Any]) -> str:
     arch = manifest["architecture"]
     add("architecture", "Architecture", '<p>' + _html(arch["summary"]) + "</p>" + _html_architecture(manifest) + _html_table(["Component", "Purpose"], [[item["name"], item["description"]] for item in arch["components"]]))
     data = manifest["data_api"]
-    add("data-api", "Data, APIs, and identity", '<div class="cards"><div class="card"><h3>Data stores</h3>' + _html_list(data["datastores"]) + '</div><div class="card"><h3>APIs and integrations</h3>' + _html_list(data["apis"]) + '</div><div class="card"><h3>Authentication</h3>' + _html_list(data["authentication"]) + "</div></div>" + _html_table(["Decision", "Status", "Owner", "Selected", "Rationale"], [[item["question"], item["status"], item["owner"], item.get("selected") or "Pending", item["rationale"]] for item in data["decisions"]]))
+    add("data-api", "Data, APIs, and identity", '<div class="cards"><div class="card"><h3>Data stores</h3>' + _html_list(data["datastores"]) + '</div><div class="card"><h3>APIs and integrations</h3>' + _html_list(data["apis"]) + '</div><div class="card"><h3>Authentication</h3>' + _html_list(data["authentication"]) + "</div></div>" + _html_table(["Decision", "Status", "Required", "Owner", "Selected", "Rationale"], [[item["question"], item["status"], item.get("required", True), item["owner"], item.get("selected") or "Pending", item["rationale"]] for item in data["decisions"]]))
     con = manifest["constraints"]
     add("constraints", "Constraints", '<div class="cards"><div class="card"><h3>Security and privacy</h3>' + _html_list(con["security_privacy"]) + '</div><div class="card"><h3>Performance</h3>' + _html_list(con["performance"]) + '</div><div class="card"><h3>Accessibility</h3>' + _html_list(con["accessibility"]) + '</div><div class="card"><h3>Localization</h3>' + _html_list(con["localization"]) + '</div><div class="card"><h3>Deployment</h3>' + _html_list(con["deployment"]) + '</div><div class="card"><h3>Offline</h3><p>' + _html(con["offline"]) + '</p><h3>Monetization</h3><p>' + _html(con["monetization"]) + '</p><h3>Budget</h3><p>' + _html(con["budget"]) + "</p></div></div>")
     caps = manifest["capability_report"]
-    match_rows = [[match["role_id"], item["capability"], item["kind"], item["status"], "; ".join(item["evidence"])] for match in caps["role_matches"] for item in match["requirements"]]
-    add("capabilities", "Capability report", '<p>Runtime: <strong>' + _html(caps["runtime"]["name"]) + "</strong>; session availability: " + _html(caps["runtime"]["session_availability"]) + "</p>" + _html_table(["Role", "Capability", "Kind", "Status", "Evidence"], match_rows) + '<h3>Gaps</h3>' + _html_list(caps["gaps"], "No gaps recorded.") + '<details><summary>Discovered skills</summary>' + _html_table(["Skill", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in caps["skills"]]) + "</details><details><summary>Discovered agents and tools</summary>" + _html_table(["Capability", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in [*caps["agents"], *caps["tools"]]]) + "</details>")
+    match_rows = [[match["role_id"], item["capability"], item["kind"], item.get("requirement_type", "capability"), item.get("source", "role_profile"), item["status"], "; ".join(item["evidence"])] for match in caps["role_matches"] for item in match["requirements"]]
+    cap_plan_rows = [[item["role_id"], item["capability"], item["owner"], item["next_action"]] for item in manifest["readiness"].get("capability_plans", [])]
+    add("capabilities", "Capability report", '<p>Runtime: <strong>' + _html(caps["runtime"]["name"]) + "</strong>; session availability: " + _html(caps["runtime"]["session_availability"]) + "</p>" + _html_table(["Role", "Capability", "Kind", "Type", "Source", "Status", "Evidence"], match_rows) + '<h3>Gaps</h3>' + _html_list(caps["gaps"], "No gaps recorded.") + '<h3>Capability remediation plans</h3>' + _html_table(["Role", "Capability", "Owner", "Next action"], cap_plan_rows) + '<details><summary>Discovered skills</summary>' + _html_table(["Skill", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in caps["skills"]]) + "</details><details><summary>Discovered agents and tools</summary>" + _html_table(["Capability", "Status", "Source"], [[item["name"], item["status"], item["source"]] for item in [*caps["agents"], *caps["tools"]]]) + "</details>")
     team = manifest["team"]
     assignments = [team["supervisor"], *team["specialists"]]
     cards = []
@@ -249,7 +252,7 @@ def render_html(manifest: dict[str, Any]) -> str:
     relevance_text = "; ".join(f"{item['role_id']}: {item['score']}/10 ({', '.join(item['signals']) or 'user-selected'})" for item in metrics["role_relevance"])
     overlap_text = "; ".join(" / ".join(pair) for pair in metrics["role_overlap"]["pairs"]) or "None"
     metric_rows = [
-        ["Role relevance", relevance_text or "No specialist selected", "Keyword and platform signal heuristic, capped at 10"],
+        ["Role relevance", relevance_text or "No specialist selected", "Confirmed project signals and platform matches rank above unresolved facts and decisions; keyword heuristic, capped at 10"],
         ["Role overlap", f"{metrics['role_overlap']['pair_count']} pair(s): {overlap_text}", "Catalogue overlap relationships"],
         ["Workstream independence", metrics["workstream_independence"]["score"], metrics["workstream_independence"]["basis"]],
         ["Coordination overhead", metrics["coordination_overhead"]["score"], metrics["coordination_overhead"]["basis"]],
@@ -275,7 +278,7 @@ def render_html(manifest: dict[str, Any]) -> str:
         risk_cards.append(f'<div class="card risk-{_html(risk["impact"])}"><h3>{_html(risk["description"])}</h3><p>Likelihood: {_html(risk["likelihood"])}; impact: {_html(risk["impact"])}</p><p>Mitigation: {_html(risk["mitigation"])}</p><p>Owner: {_html(risk["owner"])}</p></div>')
     add("risks", "Risks", '<div class="cards">' + ("".join(risk_cards) if risk_cards else '<p class="empty">No risks recorded.</p>') + "</div>")
     add("assumptions", "Assumptions", _html_table(["Assumption", "Validation action", "Owner", "Status"], [[item["statement"], item["validation_action"], item["owner"], item["status"]] for item in manifest["assumptions"]]))
-    add("decisions", "Decision register", _html_table(["Question", "Status", "Owner", "Selected", "Options", "Rationale"], [[item["question"], item["status"], item["owner"], item.get("selected") or "Pending", "; ".join(item["options"]), item["rationale"]] for item in manifest["decisions"]]))
+    add("decisions", "Decision register", _html_table(["Question", "Status", "Required", "Owner", "Selected", "Options", "Rationale"], [[item["question"], item["status"], item.get("required", True), item["owner"], item.get("selected") or "Pending", "; ".join(item["options"]), item["rationale"]] for item in manifest["decisions"]]))
     cost = manifest["cost_estimate"]
     add("cost", "Cost and token estimate", '<div class="cards"><div class="card"><h3>Estimated total</h3><p>' + _html(cost["total_amount"]) + " " + _html(cost["currency"]) + "</p><p>Confidence: " + _html(cost["confidence"]) + '</p></div><div class="card"><h3>Estimated orchestration tokens</h3><p>' + _html(cost["token_estimate"]["input"]) + " input / " + _html(cost["token_estimate"]["output"]) + " output</p><p>" + _html(cost["token_estimate"]["method"]) + "</p></div></div>" + _html_table(["Cost item", "Amount", "Basis"], [[item["label"], item["amount"], item["basis"]] for item in cost["items"]]) + '<h3>Estimate assumptions</h3>' + _html_list(cost["assumptions"]))
     repo = project["existing_repository"]

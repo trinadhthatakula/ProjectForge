@@ -25,6 +25,8 @@ Discovery can inspect `$CODEX_HOME/skills`, `~/.codex/skills`, `~/.agents/skills
 
 Match role capability tags against skill name and description terms, then against the active tool inventory and known custom agent metadata. Report the signals that matched. Do not claim semantic equivalence from one overlapping word. A related skill can satisfy an optional capability, but a required capability remains partial or missing until its instructions or behavior are checked.
 
+Match each role's `tool_requirements` only against tool inventory entries. Skill or agent metadata may show that an expert has relevant guidance, but it does not establish that an executable, SDK, account connection, or integration is usable. Match role `required_capabilities` against relevant skills, agents, and tools. Also include project-specific `required_capabilities` from each assignment and identify them as assignment-sourced requirements in the report.
+
 ## Recommendations
 
 Recommend additional skills only when the gap materially affects the project. Include the capability gap, suggested category, and rationale. Do not auto-install, download, or run them. Report “not available in this runtime” when no suitable option was found.

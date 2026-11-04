@@ -62,6 +62,111 @@ def _cycle(nodes: set[str], edges: list[tuple[str, str]]) -> list[str] | None:
     return None
 
 
+def _has_content(value: Any) -> bool:
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_content(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_has_content(item) for item in value)
+    return value is not None
+
+
+def _readiness_gate_errors(manifest: dict[str, Any]) -> list[str]:
+    errors: list[str] = []
+    project = manifest["project"]
+    required_values = {
+        "project.problem_statement": project["problem_statement"],
+        "project.target_audience": project["target_audience"],
+        "project.goals": project["goals"],
+        "project.platforms": project["platforms"],
+        "project.scope.included": project["scope"]["included"],
+        "project.features": manifest["features"],
+        "technology.selected": manifest["technology"]["selected"],
+        "constraints.security_privacy": manifest["constraints"]["security_privacy"],
+        "constraints.monetization": manifest["constraints"]["monetization"],
+        "constraints.budget": manifest["constraints"]["budget"],
+        "architecture.summary": manifest["architecture"]["summary"],
+        "milestones": manifest["milestones"],
+    }
+    for path, value in required_values.items():
+        if not _has_content(value):
+            errors.append(f"readiness.status cannot be 'ready' while {path} is empty")
+    if project["classification"] == "pending":
+        errors.append("readiness.status cannot be 'ready' while project.classification is pending")
+
+    data_api = manifest["data_api"]
+    if not any(_has_content(data_api.get(key)) for key in ("datastores", "apis", "authentication", "decisions")):
+        errors.append("readiness.status cannot be 'ready' while data, API, and identity scope is unstated; record the applicable choices or explicitly mark them not applicable")
+    for milestone in manifest["milestones"]:
+        if not milestone["name"].strip() or not milestone["target"].strip():
+            errors.append(f"readiness.status cannot be 'ready' while milestone {milestone['id']!r} lacks a name or target")
+
+    if manifest["team"]["approval_status"] != "accepted":
+        errors.append("readiness.status cannot be 'ready' until the proposed team is accepted")
+    if len(manifest["team"]["specialists"]) > 6:
+        errors.append("readiness.status cannot be 'ready' with more than six specialists plus the supervisor")
+
+    for feature in manifest["features"]:
+        if feature["priority"] != "must":
+            continue
+        criteria = [item for item in feature["acceptance_criteria"] if item.strip()]
+        if not criteria:
+            errors.append(f"readiness.status cannot be 'ready' while must-have feature {feature['id']!r} has no acceptance criteria")
+        if feature["status"] not in {"confirmed", "verified"}:
+            errors.append(f"readiness.status cannot be 'ready' while must-have feature {feature['id']!r} is {feature['status']}")
+
+    resolved_statuses = {"confirmed", "verified"}
+    decisions = [*manifest["decisions"], *data_api["decisions"]]
+    for decision in decisions:
+        owner = decision["owner"].strip()
+        required = decision.get("required", True)
+        if not owner:
+            errors.append(f"readiness.status cannot be 'ready' while decision {decision['id']!r} has no owner")
+        if required and decision["status"] not in resolved_statuses:
+            errors.append(f"readiness.status cannot be 'ready' while required decision {decision['id']!r} is {decision['status']}")
+        if required and decision["status"] in resolved_statuses and not (decision.get("selected") or decision["rationale"].strip()):
+            errors.append(f"readiness.status cannot be 'ready' while resolved decision {decision['id']!r} has no recorded outcome or rationale")
+
+    for risk in manifest["risks"]:
+        if not risk["owner"].strip():
+            errors.append(f"readiness.status cannot be 'ready' while risk {risk['id']!r} has no owner")
+        if risk["impact"] == "high" and not risk["mitigation"].strip():
+            errors.append(f"readiness.status cannot be 'ready' while high-impact risk {risk['id']!r} has no mitigation")
+    for assumption in manifest["assumptions"]:
+        if assumption["status"] == "open" and (not assumption["owner"].strip() or not assumption["validation_action"].strip()):
+            errors.append(f"readiness.status cannot be 'ready' while open assumption {assumption['id']!r} lacks an owner or validation action")
+
+    capability_rows = manifest["capability_report"]["role_matches"]
+    team_role_ids = {item["role_id"] for item in [manifest["team"]["supervisor"], *manifest["team"]["specialists"]]}
+    reported_role_ids = {item["role_id"] for item in capability_rows}
+    if not capability_rows:
+        errors.append("readiness.status cannot be 'ready' before required capabilities are matched to the current runtime")
+    for role_id in sorted(team_role_ids - reported_role_ids):
+        errors.append(f"readiness.status cannot be 'ready' while capability matching has no result for role {role_id!r}")
+
+    plans = manifest["readiness"].get("capability_plans", [])
+    for role in capability_rows:
+        for requirement in role["requirements"]:
+            if requirement["kind"] != "required" or requirement["status"] == "available":
+                continue
+            planned = any(
+                plan["role_id"] == role["role_id"] and plan["capability"].casefold() == requirement["capability"].casefold()
+                and plan["owner"].strip() and plan["next_action"].strip()
+                for plan in plans
+            )
+            if not planned:
+                errors.append(f"readiness.status cannot be 'ready' while required capability {role['role_id']!r}: {requirement['capability']!r} is {requirement['status']} without an owner and next-action plan")
+    return errors
+
+
+def readiness_blockers(manifest: dict[str, Any]) -> list[str]:
+    prefix = "readiness.status cannot be 'ready' while "
+    explicit = manifest["readiness"].get("blockers", [])
+    derived = [error.removeprefix(prefix) for error in _readiness_gate_errors(manifest)]
+    return list(dict.fromkeys([*explicit, *derived]))
+
+
 def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     errors = _schema_errors(manifest, skill_root() / "schemas" / "project-manifest.schema.json")
     if errors:
@@ -147,22 +252,7 @@ def validate_manifest(manifest: dict[str, Any]) -> list[str]:
     if manifest["readiness"]["status"] == "ready" and manifest["readiness"]["blockers"]:
         errors.append("readiness.status cannot be 'ready' while blockers remain")
     if manifest["readiness"]["status"] == "ready":
-        project = manifest["project"]
-        required_values = {
-            "project.problem_statement": project["problem_statement"],
-            "project.target_audience": project["target_audience"],
-            "project.goals": project["goals"],
-            "project.platforms": project["platforms"],
-            "project.features": manifest["features"],
-            "architecture.summary": manifest["architecture"]["summary"],
-        }
-        for path, value in required_values.items():
-            if not value:
-                errors.append(f"readiness.status cannot be 'ready' while {path} is empty")
-        if project["classification"] == "pending":
-            errors.append("readiness.status cannot be 'ready' while project.classification is pending")
-        if team["approval_status"] != "accepted":
-            errors.append("readiness.status cannot be 'ready' until the proposed team is accepted")
+        errors.extend(_readiness_gate_errors(manifest))
     if not manifest["output_preferences"]["formats"]:
         errors.append("output_preferences.formats must include at least one output format")
     return errors

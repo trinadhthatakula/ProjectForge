@@ -15,7 +15,7 @@ from .discovery import discover_environment, inspect_skill, match_capabilities
 from .optimization import _estimate, optimize_team
 from .rendering import render_html, render_markdown
 from .security import redact_sensitive
-from .validation import validate_manifest, validate_role_catalog
+from .validation import readiness_blockers, validate_manifest, validate_role_catalog
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -286,7 +286,20 @@ def _cmd_validate(args: argparse.Namespace) -> int:
         manifest = _load_manifest(args.manifest)
         errors = validate_manifest(manifest)
         all_errors.extend(f"manifest: {error}" for error in errors)
-        manifest_result = {"path": str(args.manifest), "valid": not errors, "errors": errors}
+        readiness = manifest.get("readiness", {}) if isinstance(manifest, dict) else {}
+        readiness_status = readiness.get("status", "unknown") if isinstance(readiness, dict) else "unknown"
+        readiness_items = readiness.get("blockers", []) if isinstance(readiness, dict) else []
+        if not isinstance(readiness_items, list):
+            readiness_items = []
+        if not errors and isinstance(manifest, dict):
+            readiness_items = readiness_blockers(manifest)
+        elif readiness_status == "ready":
+            gate_prefix = "readiness.status cannot be 'ready'"
+            readiness_items = list(dict.fromkeys([*readiness_items, *[error for error in errors if error.startswith(gate_prefix)]]))
+        manifest_result = {
+            "path": str(args.manifest), "valid": not errors, "errors": errors,
+            "readiness": {"status": readiness_status, "blockers": readiness_items},
+        }
     result = {"valid": not all_errors, "catalog": {"role_count": len(catalog()["roles"]), "valid": not catalog_errors, "errors": catalog_errors}, "manifest": manifest_result, "errors": all_errors}
     if args.format == "json":
         _emit(result, "json")
@@ -296,6 +309,10 @@ def _cmd_validate(args: argparse.Namespace) -> int:
             print(f"- {error}")
     else:
         print(f"Validation passed. Role profiles: {len(catalog()['roles'])}" + (f"; manifest: {args.manifest}" if args.manifest and not args.catalog_only else ""))
+        if manifest_result and manifest_result["readiness"]["blockers"]:
+            print(f"Readiness remains {manifest_result['readiness']['status']}; open gates:")
+            for blocker in manifest_result["readiness"]["blockers"]:
+                print(f"- {blocker}")
     return 0 if not all_errors else 1
 
 

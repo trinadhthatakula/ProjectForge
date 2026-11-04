@@ -645,6 +645,16 @@
                         "optional"
                       ]
                     },
+                    "requirement_type": {
+                      "description": "Whether this is a general capability or a tool requirement that needs direct tool evidence.",
+                      "type": "string",
+                      "enum": ["capability", "tool"]
+                    },
+                    "source": {
+                      "description": "Whether the requirement came from the role profile or this project assignment.",
+                      "type": "string",
+                      "enum": ["role_profile", "assignment"]
+                    },
                     "status": {
                       "type": "string",
                       "enum": [
@@ -1308,6 +1318,21 @@
             "type": "string"
           }
         },
+        "capability_plans": {
+          "description": "Named owners and next actions for required capabilities that are not currently available.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["role_id", "capability", "owner", "next_action"],
+            "properties": {
+              "role_id": {"type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"},
+              "capability": {"type": "string", "minLength": 1},
+              "owner": {"type": "string", "minLength": 1},
+              "next_action": {"type": "string", "minLength": 1}
+            }
+          }
+        },
         "checked_at": {
           "type": "string"
         }
@@ -1406,6 +1431,11 @@
         },
         "owner": {
           "type": "string"
+        },
+        "required": {
+          "description": "Whether this decision must be resolved before implementation readiness; defaults to true when omitted.",
+          "type": "boolean",
+          "default": true
         },
         "selected": {
           "type": [

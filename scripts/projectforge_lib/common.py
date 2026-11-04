@@ -137,7 +137,7 @@ def new_manifest(name: str, mode: str = "agent_decided") -> dict[str, Any]:
         "decisions": [],
         "cost_estimate": {"currency": "UNSPECIFIED", "total_amount": None, "confidence": "unknown", "items": [], "token_estimate": {"input": 0, "output": 0, "method": "Not estimated."}, "assumptions": []},
         "output_preferences": {"formats": ["markdown", "html"], "include_architecture_diagram": True, "include_team_contracts": True},
-        "readiness": {"status": "draft", "blockers": ["Project discovery has not been completed."], "checked_at": stamp},
+        "readiness": {"status": "draft", "blockers": ["Project discovery has not been completed."], "capability_plans": [], "checked_at": stamp},
         "change_log": [],
         "extensions": {},
     }

@@ -211,25 +211,39 @@ def match_capabilities(
         profile = role_by_id.get(role_assignment["role_id"])
         if not profile:
             continue
-        reqs = [(value, "required") for value in profile["required_capabilities"]]
-        reqs.extend((value, "required") for value in profile["tool_requirements"])
-        reqs.extend((value, "optional") for value in profile["optional_capabilities"])
-        reqs.extend((value, "optional") for value in profile["supporting_skill_categories"])
-        reqs = list(dict.fromkeys(reqs))
-        for requirement, kind in reqs:
+        assignment_required = role_assignment.get("required_capabilities", [])
+        assignment_required_set = {value.casefold() for value in assignment_required}
+        reqs: list[tuple[str, str, str, str]] = []
+        reqs.extend((value, "required", "capability", "role_profile") for value in profile["required_capabilities"])
+        reqs.extend((value, "required", "tool", "role_profile") for value in profile["tool_requirements"])
+        reqs.extend((value, "optional", "capability", "role_profile") for value in profile["optional_capabilities"] if value.casefold() not in assignment_required_set)
+        reqs.extend((value, "optional", "capability", "role_profile") for value in profile["supporting_skill_categories"] if value.casefold() not in assignment_required_set)
+        profile_required = {value.casefold() for value in [*profile["required_capabilities"], *profile["tool_requirements"]]}
+        reqs.extend(
+            (value, "required", "capability", "assignment")
+            for value in assignment_required
+            if value.casefold() not in profile_required
+        )
+        seen_requirements: set[tuple[str, str, str, str]] = set()
+        for requirement, kind, requirement_type, source in reqs:
+            requirement_key = (requirement.casefold(), kind, requirement_type, source)
+            if requirement_key in seen_requirements:
+                continue
+            seen_requirements.add(requirement_key)
             candidates: list[tuple[float, dict[str, str], str]] = []
-            for skill in inventory.get("skills", []):
-                score = _match_score(requirement, skill["name"] + " " + skill["description"])
-                if score >= threshold:
-                    candidates.append((score, skill, "skill"))
+            if requirement_type == "capability":
+                for skill in inventory.get("skills", []):
+                    score = _match_score(requirement, skill["name"] + " " + skill["description"])
+                    if score >= threshold:
+                        candidates.append((score, skill, "skill"))
+                for agent in inventory.get("agents", []):
+                    score = _match_score(requirement, agent["name"] + " " + agent["description"])
+                    if score >= threshold:
+                        candidates.append((score, agent, "agent"))
             for tool in inventory.get("tools", []):
                 score = _match_score(requirement, tool["name"])
                 if score >= threshold:
                     candidates.append((score, tool, "tool"))
-            for agent in inventory.get("agents", []):
-                score = _match_score(requirement, agent["name"] + " " + agent["description"])
-                if score >= threshold:
-                    candidates.append((score, agent, "agent"))
             candidates.sort(key=lambda item: (-item[0], item[1]["name"].casefold()))
             evidence: list[str] = []
             statuses: list[str] = []
@@ -247,15 +261,18 @@ def match_capabilities(
                 status = "unverified" if inventory["runtime"]["session_availability"] == "unverified" else "missing"
             if not evidence:
                 evidence.append("No matching local metadata; active session capability inventory is not confirmed")
-            capabilities.append({"role_id": profile["id"], "requirement": requirement, "kind": kind, "status": status, "evidence": evidence})
+            capabilities.append({"role_id": profile["id"], "requirement": requirement, "kind": kind, "requirement_type": requirement_type, "source": source, "status": status, "evidence": evidence})
 
-    role_groups: dict[str, list[dict[str, Any]]] = {}
+    role_groups: dict[str, list[dict[str, Any]]] = {
+        assignment["role_id"]: [] for assignment in assigned if assignment["role_id"] in role_by_id
+    }
     for item in capabilities:
-        role_groups.setdefault(item["role_id"], []).append({"capability": item["requirement"], "kind": item["kind"], "status": item["status"], "evidence": item["evidence"]})
+        role_groups.setdefault(item["role_id"], []).append({"capability": item["requirement"], "kind": item["kind"], "requirement_type": item["requirement_type"], "source": item["source"], "status": item["status"], "evidence": item["evidence"]})
     gaps = []
     for item in capabilities:
         if item["kind"] == "required" and item["status"] != "available":
-            gaps.append(f"{item['role_id']}: {item['requirement']} is {item['status']}")
+            source = "assignment-specific " if item["source"] == "assignment" else ""
+            gaps.append(f"{item['role_id']}: {source}{item['requirement']} is {item['status']}")
     manifest["capability_report"] = {
         "generated_at": inventory["generated_at"],
         "runtime": inventory["runtime"],
