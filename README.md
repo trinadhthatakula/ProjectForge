@@ -90,6 +90,18 @@ python3 scripts/projectforge.py record-result \
   --review accepted --reviewer supervisor --apply
 ```
 
+ProjectForge can also send one bounded assignment directly to a supported provider adapter. It sends the selected assignment contract, project fields used by that contract, the task text, and only context files explicitly named with `--context-file`. It does not scan or upload the repository. Provider requests can disclose that selected content to the chosen service; review the data and that provider's retention terms before dispatch. HTTP API credentials are read from environment variables; Claude Code uses its local CLI authentication. Credentials are never placed in ProjectForge command-line arguments or logs.
+
+Supported adapters are `openai`, `anthropic`, `gemini`, `openai-compatible`, and `claude-cli`. The first four call HTTPS APIs; `openai-compatible` also permits HTTP on localhost for local testing. By default, API credentials come from `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GEMINI_API_KEY` (or `GOOGLE_API_KEY` when it is unset), and `PROJECTFORGE_OPENAI_COMPATIBLE_API_KEY`; `--api-key-env` selects another environment variable. The `claude-cli` adapter uses the locally installed and authenticated Claude Code CLI in safe mode, disables its tools, sends the prompt through standard input, and does not persist a session. Model names and access are provider-specific.
+
+```sh
+python3 scripts/projectforge.py run-agent /path/to/projectforge-1.3.json supervisor \
+  --provider openai --model YOUR_MODEL --task "Draft the project kickoff note" \
+  --context-file README.md --result-output .projectforge/results/result-001.json
+```
+
+`run-agent` validates the provider's result against the shared schema and assignment path contract before writing it. `--max-output-tokens` controls API adapters; Claude Code uses its configured model limit. Existing result files are never overwritten; existing artifacts require the explicit `--force-artifacts` option. The result is left outside the manifest ledger for supervisor review. Run `validate-result`, inspect the evidence and generated files, then use `record-result` to record a review decision. An agent's completion status never constitutes acceptance.
+
 Applied CLI changes append structured events to `execution.events`. Event entries keep identifiers, operation types, review states, and aggregate counts; they do not copy result evidence, review notes, or verification text. Secret-like identifiers are rejected. Treat this list as append-only when editing manifests by hand.
 
 See `examples/` for Android, web SaaS, Python automation, and cross-platform manifests. GitHub Actions validates schemas and examples, runs the CLI smoke workflow, and runs the automated suite on Python 3.11–3.13. To run the suite locally:

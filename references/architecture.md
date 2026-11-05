@@ -12,6 +12,7 @@ ProjectForge separates conversational judgment from deterministic checks. The sk
 | `references/roles.json` | Versioned expert profiles, role-specific trigger cues, capability expectations, collaboration relationships, and links to selected-role guides. |
 | `references/role-guides/` | Selected-role planning rules, domain cues, evidence requirements, boundaries, and handoff criteria. Read only guides for shortlisted roles. |
 | `scripts/projectforge.py` | CLI entry point for manifest creation, capability discovery and verification, matching, optimization, validation, estimation, rendering, and diffing. |
+| `scripts/projectforge_lib/provider_runtime.py` | Optional adapters for direct, bounded assignment dispatch; validates provider results and writes declared artifacts without recording supervisor acceptance. |
 | `schemas/` | Draft 2020-12 schemas for versioned project manifests, capability verification, expert roles, assignment contracts, dependency resolutions, and provider-neutral agent results. |
 | `templates/` | Markdown and standalone HTML presentation structure. |
 | `examples/` | Representative valid inputs for four project shapes. |
@@ -37,6 +38,8 @@ flowchart LR
 The manifest is the canonical specification and execution ledger. Agent result files are separately versioned evidence records; the supervisor records their lifecycle and acceptance in the manifest. Commands that apply changes to an existing manifest are serialized per path and compare the file with the snapshot they read; stale updates fail instead of replacing newer changes. Reload the manifest, review the conflict, and rerun the intended operation. A generated document never becomes an alternate source of truth. Team optimization is explainable and advisory: the supervisor resolves context-sensitive decisions, and roster validation is strict about the seven-person ceiling. User choices and evidence take precedence over heuristic recommendations.
 
 Capability matching is a discovery stage, not proof of task fit. Manifest versions 1.2.0 and later record separate evidence-backed verification for accessibility, instructions, operation support, permissions, and expected output. Required capabilities must be verified before the readiness gate accepts `ready`.
+
+The optional `run-agent` command sends only the selected assignment fields, task text, and explicitly selected context files. It does not traverse the repository. Provider calls may transmit that content to an external service. HTTP adapters reject redirects to avoid forwarding credentials or context to a different host; responses, prompts, context files, and artifacts have size limits. Provider-produced files remain untrusted until the supervisor validates and reviews them.
 
 ## Capability model
 

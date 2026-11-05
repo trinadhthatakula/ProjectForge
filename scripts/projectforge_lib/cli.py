@@ -16,6 +16,7 @@ from .events import append_execution_event
 from .handoffs import result_sha256, validate_agent_result, validate_result_location
 from .migrations import CURRENT_MANIFEST_VERSION, migrate_manifest
 from .optimization import _estimate, optimize_team
+from .provider_runtime import request_assignment, write_assignment_outputs
 from .rendering import render_html, render_markdown
 from .security import redact_sensitive
 from .validation import readiness_blockers, validate_manifest, validate_role_catalog
@@ -30,7 +31,7 @@ _CAPABILITY_VERIFICATION_BLOCKERS = {
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="projectforge", description="Discover and verify capabilities, plan a small specialist team, validate a project manifest, and generate kickoff documents.")
+    parser = argparse.ArgumentParser(prog="projectforge", description="Discover and verify capabilities, plan teams, dispatch bounded assignments, validate results, and generate kickoff documents.")
     sub = parser.add_subparsers(dest="command", required=True)
 
     init = sub.add_parser("init", help="create a protected starter manifest")
@@ -123,6 +124,19 @@ def _parser() -> argparse.ArgumentParser:
     record_result.add_argument("--review-notes", default="")
     record_result.add_argument("--apply", action="store_true", help="append the result to the manifest execution ledger")
     record_result.add_argument("--dry-run", action="store_true")
+
+    run_agent = sub.add_parser("run-agent", help="send one assignment to an explicitly selected provider and validate its structured result")
+    run_agent.add_argument("manifest", type=Path)
+    run_agent.add_argument("assignment_id")
+    run_agent.add_argument("--provider", required=True, choices=["openai", "anthropic", "gemini", "openai-compatible", "claude-cli"])
+    run_agent.add_argument("--model", required=True)
+    run_agent.add_argument("--task", required=True, help="specific work requested from the selected assignment")
+    run_agent.add_argument("--context-file", action="append", type=Path, default=[], help="explicit UTF-8 project-relative context file; repeat as needed")
+    run_agent.add_argument("--result-output", required=True, type=Path, help="new project-relative path for the provider-neutral result JSON")
+    run_agent.add_argument("--api-key-env", help="environment variable containing the selected API credential")
+    run_agent.add_argument("--base-url", help="required endpoint base for openai-compatible providers")
+    run_agent.add_argument("--max-output-tokens", type=int, default=8192, help="API provider output limit; Claude Code CLI uses its configured model limit")
+    run_agent.add_argument("--force-artifacts", action="store_true", help="replace existing allowed UTF-8 artifacts; result files are never replaced")
 
     render = sub.add_parser("render", help="generate Markdown and/or offline HTML from a validated manifest")
     render.add_argument("manifest", type=Path)
@@ -680,6 +694,43 @@ def _cmd_record_result(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_run_agent(args: argparse.Namespace) -> int:
+    manifest = _load_manifest(args.manifest)
+    errors = validate_manifest(manifest)
+    if errors:
+        raise ValueError("Refusing to run an agent with an invalid manifest: " + "; ".join(errors))
+    result, artifacts = request_assignment(
+        manifest=manifest,
+        manifest_path=args.manifest,
+        assignment_id=args.assignment_id,
+        task=args.task,
+        provider=args.provider,
+        model=args.model,
+        context_files=args.context_file,
+        api_key_env=args.api_key_env,
+        base_url=args.base_url,
+        max_output_tokens=args.max_output_tokens,
+    )
+    result_path, artifact_paths = write_assignment_outputs(
+        manifest_path=args.manifest,
+        result_output=args.result_output,
+        result=result,
+        artifacts=artifacts,
+        force_artifacts=args.force_artifacts,
+    )
+    _emit({
+        "provider": args.provider,
+        "model": args.model,
+        "assignment_id": args.assignment_id,
+        "result_id": result["result_id"],
+        "status": result["status"],
+        "result_file": result_path,
+        "artifacts_written": artifact_paths,
+        "recorded_for_supervisor_review": False,
+    }, "json")
+    return 0
+
+
 def _cmd_render(args: argparse.Namespace) -> int:
     manifest = _load_manifest(args.manifest)
     errors = validate_manifest(manifest)
@@ -783,7 +834,7 @@ def _cmd_codex_agents(args: argparse.Namespace) -> int:
     return 0
 
 
-COMMANDS = {"init": _cmd_init, "roles": _cmd_roles, "classify": _cmd_classify, "inspect-skill": _cmd_inspect_skill, "discover": _cmd_discover, "match": _cmd_match, "optimize": _cmd_optimize, "validate": _cmd_validate, "migrate": _cmd_migrate, "resolve-dependencies": _cmd_resolve_dependencies, "record-verification": _cmd_record_verification, "validate-result": _cmd_validate_result, "record-result": _cmd_record_result, "render": _cmd_render, "diff": _cmd_diff, "estimate": _cmd_estimate, "codex-agents": _cmd_codex_agents}
+COMMANDS = {"init": _cmd_init, "roles": _cmd_roles, "classify": _cmd_classify, "inspect-skill": _cmd_inspect_skill, "discover": _cmd_discover, "match": _cmd_match, "optimize": _cmd_optimize, "validate": _cmd_validate, "migrate": _cmd_migrate, "resolve-dependencies": _cmd_resolve_dependencies, "record-verification": _cmd_record_verification, "validate-result": _cmd_validate_result, "record-result": _cmd_record_result, "run-agent": _cmd_run_agent, "render": _cmd_render, "diff": _cmd_diff, "estimate": _cmd_estimate, "codex-agents": _cmd_codex_agents}
 
 
 def main(argv: list[str] | None = None) -> int:
