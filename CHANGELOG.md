@@ -4,7 +4,7 @@ User-visible changes are recorded here. Dates use ISO 8601.
 
 ## Unreleased
 
-- No unreleased changes.
+- Add a repeatable offline benchmark harness and a measured ProjectForge 1.0.0 baseline for validation, rendering, team optimization, and capability matching.
 
 ## 1.0.0 — 2026-11-05
 

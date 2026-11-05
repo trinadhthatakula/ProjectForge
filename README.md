@@ -117,12 +117,24 @@ python3 scripts/projectforge.py codex-agents /path/to/projectforge.json \
   --target-dir /path/to/target-project --dry-run
 ```
 
+## Performance benchmark
+
+Run the offline helper benchmarks and write the JSON measurements to a file:
+
+```sh
+python3 benchmarks/benchmark_projectforge.py --sizes 10,100,1000 --iterations 9 \
+  > /tmp/projectforge-benchmark.json
+```
+
+See [`benchmarks/README.md`](benchmarks/README.md) for the measured 1.0.0 baseline and comparison limits. The timings are informational and should be compared on the same machine and Python version.
+
 ## Package layout
 
 - `SKILL.md` contains the provider-neutral shared workflow and key constraints. `agents/openai.yaml` is optional display metadata for hosts that use it; it does not change the skill's supported runtimes.
 - `references/roles.json` contains the specialist catalogue and links each built-in role to its focused guide under `references/role-guides/`; other references explain discovery, architecture, and runtime limits.
 - `schemas/` defines versioned project manifests, execution events, capability verification, role profiles, assignment contracts, dependency resolutions, and provider-neutral agent results.
 - `scripts/` implements deterministic operations. It reads skill metadata and agent configuration but never executes discovered scripts.
+- `benchmarks/` contains an offline performance harness and a machine-specific reference baseline.
 - `templates/` holds document framing; renderers fill both formats from the same manifest.
 - `examples/` are complete manifests. `tests/` exercise CLI behavior and safety invariants.
 

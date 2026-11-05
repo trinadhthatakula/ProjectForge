@@ -1,0 +1,122 @@
+{
+  "benchmark": "ProjectForge local manifest operations",
+  "projectforge_version": "1.0.0",
+  "git_revision": "02b6975",
+  "measured_at": "2026-11-05T09:52:06Z",
+  "environment": {
+    "python": "3.12.9",
+    "implementation": "CPython",
+    "system": "Darwin",
+    "system_release": "27.3.0",
+    "machine": "arm64",
+    "processor": "arm"
+  },
+  "method": {
+    "timer": "time.perf_counter_ns",
+    "warmups_per_operation": 1,
+    "iterations_per_operation": 9,
+    "reported_units": "milliseconds",
+    "reported_statistics": [
+      "median",
+      "nearest-rank p95"
+    ],
+    "network_access": "none",
+    "fixture": "synthetic manifest and capability inventory; feature and skill counts scale together",
+    "thresholds": "informational only; rerun on the same environment for comparisons"
+  },
+  "measurements": [
+    {
+      "feature_count": 10,
+      "synthetic_skill_count": 10,
+      "operations": {
+        "manifest_validation": {
+          "iterations": 9,
+          "median_ms": 122.307,
+          "p95_ms": 161.177
+        },
+        "markdown_render": {
+          "iterations": 9,
+          "median_ms": 0.548,
+          "p95_ms": 0.687
+        },
+        "offline_html_render": {
+          "iterations": 9,
+          "median_ms": 0.836,
+          "p95_ms": 0.995
+        },
+        "team_optimization": {
+          "iterations": 9,
+          "median_ms": 29.642,
+          "p95_ms": 83.038
+        },
+        "capability_matching": {
+          "iterations": 9,
+          "median_ms": 52.828,
+          "p95_ms": 90.951
+        }
+      }
+    },
+    {
+      "feature_count": 100,
+      "synthetic_skill_count": 100,
+      "operations": {
+        "manifest_validation": {
+          "iterations": 9,
+          "median_ms": 87.704,
+          "p95_ms": 127.836
+        },
+        "markdown_render": {
+          "iterations": 9,
+          "median_ms": 2.012,
+          "p95_ms": 9.47
+        },
+        "offline_html_render": {
+          "iterations": 9,
+          "median_ms": 5.782,
+          "p95_ms": 14.265
+        },
+        "team_optimization": {
+          "iterations": 9,
+          "median_ms": 183.057,
+          "p95_ms": 285.027
+        },
+        "capability_matching": {
+          "iterations": 9,
+          "median_ms": 277.594,
+          "p95_ms": 421.1
+        }
+      }
+    },
+    {
+      "feature_count": 1000,
+      "synthetic_skill_count": 1000,
+      "operations": {
+        "manifest_validation": {
+          "iterations": 9,
+          "median_ms": 108.391,
+          "p95_ms": 143.905
+        },
+        "markdown_render": {
+          "iterations": 9,
+          "median_ms": 19.158,
+          "p95_ms": 38.621
+        },
+        "offline_html_render": {
+          "iterations": 9,
+          "median_ms": 44.313,
+          "p95_ms": 49.901
+        },
+        "team_optimization": {
+          "iterations": 9,
+          "median_ms": 1610.283,
+          "p95_ms": 2804.489
+        },
+        "capability_matching": {
+          "iterations": 9,
+          "median_ms": 1151.472,
+          "p95_ms": 1156.178
+        }
+      }
+    }
+  ]
+}

@@ -53,3 +53,5 @@ jobs:
           python scripts/projectforge.py init --name "CI smoke" --output "$temp_dir/manifest.json"
           python scripts/projectforge.py validate "$temp_dir/manifest.json"
           python scripts/projectforge.py render "$temp_dir/manifest.json" --output-dir "$temp_dir/output" --format both
+      - name: Run benchmark harness smoke check
+        run: python benchmarks/benchmark_projectforge.py --sizes 1,5 --iterations 1 --warmups 0 > "$RUNNER_TEMP/projectforge-benchmark-smoke.json"
